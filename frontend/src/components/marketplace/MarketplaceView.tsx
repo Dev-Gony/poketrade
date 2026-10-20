@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from "react";
-import { MARKET_TOTAL_COUNT } from "@/data/marketInsights";
 import { useTranslation } from "@/i18n/I18nProvider";
 import type { MarketListing } from "@/lib/listings";
 import { applyMarketQuery, DEFAULT_SORT, type SortId } from "@/lib/marketFilter";
@@ -15,6 +14,9 @@ import MarketHero from "./MarketHero";
  * 마켓플레이스 본문. 서버에서 받은 백엔드 매물 목록에 검색·필터·정렬을 클라이언트에서 즉시 적용한다.
  * (매물 수가 적어 전체를 한 번에 받는다. 매물이 많아지면 같은 조건을 백엔드 쿼리 파라미터로 넘기도록 바꾼다.)
  */
+/** 처음에, 그리고 [더 보기]마다 렌더링하는 매물 수. 1·2·3·4열 모두 줄이 딱 맞게 떨어지는 12 */
+const PAGE_SIZE = 12;
+
 export default function MarketplaceView({ listings }: { listings: MarketListing[] }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -40,6 +42,20 @@ export default function MarketplaceView({ listings }: { listings: MarketListing[
       }),
     [listings, deferredSearch, selectedChips, sort, priceFilterActive, deferredPrice],
   );
+
+  // 검색·필터·정렬·가격 조건이 바뀌면 다시 첫 페이지(12건)부터 보여 준다.
+  // useEffect 로 리셋하면 한 번은 이전 개수로 그려지므로, 조건 키가 바뀌었는지로 바로 판단한다.
+  const queryKey = JSON.stringify([
+    deferredSearch,
+    Array.from(selectedChips).sort(),
+    sort,
+    priceFilterActive && deferredPrice ? [deferredPrice.min, deferredPrice.max] : null,
+  ]);
+  const [paging, setPaging] = useState({ key: queryKey, count: PAGE_SIZE });
+  const shownCount = Math.min(paging.key === queryKey ? paging.count : PAGE_SIZE, visible.length);
+  const shown = visible.slice(0, shownCount);
+  const hasMore = shownCount < visible.length;
+  const loadMore = () => setPaging({ key: queryKey, count: shownCount + PAGE_SIZE });
 
   const toggleChip = useCallback((chipId: string) => {
     setSelectedChips((prev) => {
@@ -110,25 +126,39 @@ export default function MarketplaceView({ listings }: { listings: MarketListing[
           <EmptyState onReset={resetAll} />
         ) : (
           <>
-            {/* 2-Column Expansive Grail Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-space-lg">
-              {visible.map((listing) => (
+            {/* 반응형 그리드: 모바일 1열 · 태블릿 2열 · 노트북 3열 · 데스크톱 4열 */}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {shown.map((listing) => (
                 <ListingCard key={listing.listingId} listing={listing} />
               ))}
             </div>
 
             {/* Load-more Footer */}
-            <div className="flex flex-col items-center justify-center gap-space-sm py-12">
-              <span className="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">
-                {t("market.showing", { shown: visible.length, total: MARKET_TOTAL_COUNT.toLocaleString("en-US") })}
+            <div className="flex flex-col items-center justify-center gap-3 pt-4 pb-8">
+              <div className="h-1 w-48 overflow-hidden rounded-full bg-surface-container-high" aria-hidden>
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-secondary transition-[width] duration-300"
+                  style={{ width: `${(shownCount / visible.length) * 100}%` }}
+                />
+              </div>
+              <span aria-live="polite" className="font-label-numeric-sm text-label-numeric-sm text-outline">
+                {t("market.showing", { shown: shownCount, total: visible.length })}
               </span>
-              <p className="font-body-sm text-body-sm text-outline">{t("market.scrollHint")}</p>
-              <button
-                className="mt-2 px-6 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-md text-body-md transition-all shadow-sm"
-                type="button"
-              >
-                {t("market.loadMore")}
-              </button>
+              {hasMore ? (
+                <button
+                  className="mt-1 flex items-center gap-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-high px-6 py-2.5 font-body-md text-body-md font-semibold text-on-surface shadow-sm transition-all hover:border-primary/50 hover:bg-surface-container-highest active:scale-[0.98]"
+                  onClick={loadMore}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                  {t("market.loadMoreCount", { shown: shownCount, total: visible.length })}
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 font-body-sm text-body-sm text-outline">
+                  <span className="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+                  {t("market.allShown")}
+                </span>
+              )}
             </div>
           </>
         )}

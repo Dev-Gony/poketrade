@@ -83,9 +83,9 @@ export const ko: Dictionary = {
   "market.sectionSubtitle": "PSA, BGS, CGC 인증 완료. 모든 슬랩은 서울의 항온·항습 보안 보관소에 보관됩니다.",
   "market.liveBadge": "실시간 마켓",
   "market.settlementCurrency": "정산 통화:",
-  "market.showing": "인증 볼트 카드 {total}건 중 {shown}건 표시",
-  "market.scrollHint": "아래로 스크롤해 다음 매물을 불러오거나 카드 세트 필터로 좁혀 보세요",
-  "market.loadMore": "볼트 그레일 24건 더 보기",
+  "market.showing": "전체 {total}건 중 {shown}건 표시",
+  "market.loadMoreCount": "더 많은 매물 보기 ({shown}/{total})",
+  "market.allShown": "모든 매물을 확인했습니다.",
 
   "listing.priceInstant": "즉시 정산가",
   "listing.priceFixed": "인증 고정가",

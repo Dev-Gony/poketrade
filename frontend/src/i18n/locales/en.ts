@@ -88,9 +88,9 @@ export const en = {
     "Certified by PSA, BGS, and CGC. Slabs are held in high-security temperature-controlled depository lockers in Seoul.",
   "market.liveBadge": "LIVE MARKET",
   "market.settlementCurrency": "Settlement Currency:",
-  "market.showing": "Showing {shown} of {total} certified vault cards",
-  "market.scrollHint": "Scroll down to load the next batch or refine by card set filter",
-  "market.loadMore": "Load 24 More Vault Grails",
+  "market.showing": "Showing {shown} of {total} listings",
+  "market.loadMoreCount": "Show more listings ({shown}/{total})",
+  "market.allShown": "You've seen every listing.",
 
   "listing.priceInstant": "Instant Settlement Price",
   "listing.priceFixed": "Certified Fixed Price",

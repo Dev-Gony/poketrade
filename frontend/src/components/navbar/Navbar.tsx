@@ -27,7 +27,7 @@ export default function Navbar() {
               className="h-8 w-auto object-contain"
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_jD9ZsGhsLLY48jl7io622tnFdwGTGQxKFLsiAR4ZUvviVM01-1ZVhvsraYrIupTJMcHzqeS3k8EIMhV_9wU6JTiIobB74BGQCxp3DhrqOp-hpRsr-yQB_zzk2CdVhqXCwTt5Njs2ucEL0K9ha5z1MPCmI7wVh5jt5TgDiNQO21f8dd0ZLP1yL6aRkahzHLlxtOVH5ZS2np3QPnN_Mz1xhlTqvnKRSHoUo4zp6HWkHyKd2R4Qt_YF9w"
             />
-            <div className="flex items-center gap-space-xs">
+            <div className="hidden sm:flex items-center gap-space-xs">
               <span className="font-headline-sm text-headline-sm tracking-tight text-on-surface font-bold">POKETRADE</span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-label-caps text-label-caps uppercase bg-primary-container/20 text-primary border border-primary/40 tracking-wider">
                 VAULT

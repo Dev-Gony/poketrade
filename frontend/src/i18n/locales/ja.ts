@@ -84,9 +84,9 @@ export const ja: Dictionary = {
   "market.sectionSubtitle": "PSA・BGS・CGC認定済み。すべてのスラブはソウルの温度管理された高セキュリティ保管庫で保管されています。",
   "market.liveBadge": "ライブマーケット",
   "market.settlementCurrency": "決済通貨:",
-  "market.showing": "認定ボールトカード {total} 件中 {shown} 件を表示",
-  "market.scrollHint": "スクロールして続きを読み込むか、カードセットで絞り込んでください",
-  "market.loadMore": "ボールトグレイルをさらに24件表示",
+  "market.showing": "全 {total} 件中 {shown} 件を表示",
+  "market.loadMoreCount": "さらに表示 ({shown}/{total})",
+  "market.allShown": "すべての出品を表示しました。",
 
   "listing.priceInstant": "即時決済価格",
   "listing.priceFixed": "認定固定価格",

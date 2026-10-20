@@ -14,6 +14,10 @@ const TOP_BAR: Record<CardData["grade"]["company"], string> = {
   RAW: "from-outline-variant via-outline to-outline-variant",
 };
 
+/**
+ * 마켓 그리드용 세로형 카드. 1~4열 어느 폭에서도 같은 구조로 보이도록
+ * 슬랩 이미지를 위에, 거래 정보와 버튼을 아래에 둔다. (같은 행의 카드끼리 버튼 높이를 맞추기 위해 h-full + mt-auto)
+ */
 export default function ListingCard({ listing }: { listing: MarketListing }) {
   const { card, status, priceKrw } = listing;
   const onSale = status === "ON_SALE";
@@ -24,127 +28,122 @@ export default function ListingCard({ listing }: { listing: MarketListing }) {
 
   return (
     <article
-      className={`group relative flex flex-col xl:flex-row bg-surface-container-low rounded-xl shadow-xl overflow-hidden hover:shadow-[0_16px_40px_rgba(0,0,0,0.5)] transition-all duration-300 ${
+      className={`group relative flex h-full flex-col overflow-hidden rounded-xl bg-surface-container-low shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.45)] ${
         status === "SOLD" ? "opacity-60" : ""
       }`}
     >
       {/* Holographic Top Glow Shimmer */}
-      <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${TOP_BAR[card.grade.company]} opacity-70 group-hover:opacity-100 transition-opacity`} />
+      <div className={`absolute inset-x-0 top-0 z-10 h-1 bg-gradient-to-r ${TOP_BAR[card.grade.company]} opacity-70 transition-opacity group-hover:opacity-100`} />
 
-      {/* Left: Optical Slab Viewport */}
-      <div className="xl:w-5/12 p-space-md flex flex-col items-center justify-center bg-surface-container-lowest/80 relative">
-        <div className={`w-full max-w-[240px] py-1.5 px-3 rounded-t-md ${grade.plate} flex items-center justify-between mb-2`}>
-          <span className="font-label-numeric-sm text-label-numeric-sm font-bold tracking-wider">
+      {/* Optical Slab Viewport */}
+      <div className="relative flex flex-col items-center bg-surface-container-lowest/80 px-4 pb-3 pt-4">
+        <div className={`mb-2 flex w-full max-w-[210px] items-center justify-between rounded-t-md px-2.5 py-1 ${grade.plate}`}>
+          <span className="truncate font-label-numeric-sm text-label-numeric-sm font-bold tracking-wider">
             {gradeText(card)} {card.grade.label}
           </span>
-          <span className={`font-label-numeric-sm text-label-numeric-sm ${grade.meta}`}>#{card.certNumber.slice(-8)}</span>
+          {card.grade.company !== "RAW" && (
+            <span className={`ml-2 shrink-0 font-label-numeric-sm text-[10px] ${grade.meta}`}>#{card.certNumber.slice(-6)}</span>
+          )}
         </div>
-        <div className="relative w-full aspect-[63/88] max-w-[240px] rounded-lg overflow-hidden shadow-2xl bg-surface-container">
+        <div className="relative aspect-[63/88] w-full max-w-[210px] overflow-hidden rounded-lg bg-surface-container shadow-2xl">
           <img
             alt={card.name.en}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
             src={card.imageUrl}
           />
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
-          <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-surface-container-lowest/90 backdrop-blur-md text-[10px] font-label-caps text-label-caps text-primary">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
+          <div className="absolute bottom-2 left-2 rounded bg-surface-container-lowest/90 px-1.5 py-0.5 font-label-caps text-[10px] text-primary backdrop-blur-md">
             #{card.cardNumber}
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-1.5 font-label-numeric-sm text-label-numeric-sm text-outline">
-          <span className="material-symbols-outlined text-[15px] text-tertiary">lock</span>
-          <span>
-            <T k="listing.depository" vars={{ id: card.vaultBox }} />
-          </span>
-        </div>
       </div>
 
-      {/* Right: Trading Spec & Actions */}
-      <div className="xl:w-7/12 p-space-lg flex flex-col justify-between gap-space-md">
-        <div className="flex flex-col gap-space-xs">
-          {/* Badges Bar */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`px-2 py-0.5 rounded-full font-label-caps text-label-caps font-bold ${grade.badge}`}>{gradeText(card)}</span>
-            <span className="px-2 py-0.5 rounded-full font-label-caps text-label-caps text-primary bg-primary/10 uppercase">{card.setName}</span>
-            <ListingStatusBadge className="ml-auto" status={status} />
+      {/* Trading Spec & Actions */}
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <span className={`shrink-0 rounded-full px-2 py-0.5 font-label-caps text-[10px] font-bold ${grade.badge}`}>{gradeText(card)}</span>
+            <span className="min-w-0 truncate rounded-full bg-primary/10 px-2 py-0.5 font-label-caps text-[10px] uppercase text-primary" title={card.setName}>
+              {card.setName}
+            </span>
+            <ListingStatusBadge className="ml-auto shrink-0 whitespace-nowrap text-[10px]" status={status} />
           </div>
 
-          <h3 className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight mt-1">
+          <h3 className="mt-1 truncate font-headline-sm text-body-lg font-bold tracking-tight text-on-surface" title={card.name.en}>
             {/* 카드 전체를 클릭 영역으로 만드는 stretched link. 버튼들은 z-10 으로 그 위에 올린다. */}
             <Link
-              className="hover:text-primary transition-colors after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary focus-visible:after:rounded-xl"
+              className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-primary focus-visible:outline-none focus-visible:after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-primary"
               href={detailHref}
             >
               <L text={card.name} />
             </Link>
           </h3>
-          <p className="font-body-sm text-body-sm text-outline">
-            {card.setName} ({card.year}) · {card.rarity} · #{card.cardNumber}
+          <p className="truncate font-body-sm text-body-sm text-outline">
+            {card.year ? `${card.year} · ` : ""}
+            {card.rarity}
           </p>
 
-          {/* Seller Metadata Block */}
-          <div className="flex items-center gap-space-sm mt-3 pt-3 bg-surface-container/60 p-space-sm rounded-lg">
-            <div className="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold text-xs">
+          {/* Seller */}
+          <div className="mt-1 flex min-w-0 items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-container/20 text-[10px] font-bold text-primary">
               {card.seller.initials}
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1">
-                <span className="font-body-md text-body-md font-semibold text-on-surface">{listing.sellerNickname}</span>
-                <span className="material-symbols-outlined text-[14px] text-tertiary">verified</span>
-              </div>
-              <span className="font-label-numeric-sm text-label-numeric-sm text-outline">
-                <T k="listing.sellerStats" vars={{ rating: card.seller.rating, count: card.seller.trades }} />
-              </span>
-            </div>
+            <span className="truncate font-body-sm text-body-sm font-semibold text-on-surface">{listing.sellerNickname}</span>
+            <span className="material-symbols-outlined shrink-0 text-[13px] text-tertiary">verified</span>
+            <span className="ml-auto shrink-0 font-label-numeric-sm text-label-numeric-sm text-outline">★ {card.seller.rating}</span>
           </div>
         </div>
 
         {/* Price & Action Trigger */}
-        <div className="flex flex-col gap-space-sm pt-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <div className="flex flex-col">
-              <span className="font-label-caps text-label-caps text-outline uppercase">
+        <div className="mt-auto flex flex-col gap-2.5">
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex min-w-0 flex-col">
+              <span className="font-label-caps text-[10px] uppercase text-outline">
                 <T k="listing.priceInstant" />
               </span>
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="font-label-numeric-lg text-label-numeric-lg text-secondary font-extrabold">
-                  <Price krw={priceKrw} />
-                </span>
-                <span className="font-label-numeric-sm text-label-numeric-sm text-outline">
-                  <AltPrice krw={priceKrw} />
-                </span>
-              </div>
+              <span className="truncate font-label-numeric-lg text-label-numeric-lg font-extrabold text-secondary">
+                <Price krw={priceKrw} />
+              </span>
+              <span className="truncate font-label-numeric-sm text-[10px] text-outline">
+                <AltPrice krw={priceKrw} />
+              </span>
             </div>
             <span
-              className={`shrink-0 flex items-center gap-0.5 font-label-numeric-sm text-label-numeric-sm font-semibold ${rising ? "text-tertiary" : "text-error"}`}
+              className={`mb-0.5 flex shrink-0 items-center gap-0.5 font-label-numeric-sm text-label-numeric-sm font-semibold ${rising ? "text-tertiary" : "text-error"}`}
             >
               <span className="material-symbols-outlined text-[14px]">{rising ? "trending_up" : "trending_down"}</span>
               {formatChangePct(card.change30dPct)}
             </span>
           </div>
 
-          <div className="relative z-10 grid grid-cols-2 gap-space-xs mt-1">
+          <div className="relative z-10 grid grid-cols-2 gap-2">
             {onSale ? (
               <Link
-                className="w-full py-2.5 rounded-lg bg-primary-container text-on-primary-container font-headline-sm text-body-md font-bold hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5"
+                className="flex w-full items-center justify-center gap-1 rounded-lg bg-primary-container py-2 font-headline-sm text-body-sm font-bold text-on-primary-container shadow-md transition-all hover:brightness-110 active:scale-95"
                 href={checkoutHref}
               >
-                <span className="material-symbols-outlined text-[18px]">bolt</span>
+                <span className="material-symbols-outlined text-[16px]">bolt</span>
                 <T k="action.buyNow" />
               </Link>
             ) : (
-              <span className="w-full py-2.5 rounded-lg bg-surface-container-high text-outline font-headline-sm text-body-md font-bold flex items-center justify-center gap-1.5 cursor-not-allowed">
-                <span className="material-symbols-outlined text-[18px]">{status === "SOLD" ? "block" : "hourglass_top"}</span>
+              <span className="flex w-full cursor-not-allowed items-center justify-center gap-1 rounded-lg bg-surface-container-high py-2 font-headline-sm text-body-sm font-bold text-outline">
+                <span className="material-symbols-outlined text-[16px]">{status === "SOLD" ? "block" : "hourglass_top"}</span>
                 <T k={`listing.status.${status}`} />
               </span>
             )}
             <Link
-              className="w-full py-2.5 rounded-lg bg-surface-container-high text-secondary hover:bg-surface-container-highest font-headline-sm text-body-md font-semibold transition-all flex items-center justify-center gap-1.5"
+              className="flex w-full items-center justify-center gap-1 rounded-lg bg-surface-container-high py-2 font-headline-sm text-body-sm font-semibold text-secondary transition-all hover:bg-surface-container-highest"
               href={detailHref}
             >
-              <span className="material-symbols-outlined text-[18px]">gavel</span>
+              <span className="material-symbols-outlined text-[16px]">gavel</span>
               <T k="action.makeOfferShort" />
             </Link>
+          </div>
+
+          <div className="flex items-center gap-1 font-label-numeric-sm text-[10px] text-outline">
+            <span className="material-symbols-outlined text-[13px] text-tertiary">lock</span>
+            <T k="listing.depository" vars={{ id: card.vaultBox }} />
           </div>
         </div>
       </div>

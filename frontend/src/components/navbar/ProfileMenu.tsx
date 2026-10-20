@@ -39,7 +39,7 @@ export default function ProfileMenu() {
       >
         <img alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/40" src={user.avatarUrl} />
         {/* 메뉴가 펼쳐지는 xl 이상에서는 폭이 모자라 아바타만 보이고, 이름/잔액은 드롭다운 상단에 표시 */}
-        <span className="flex flex-col text-left xl:hidden">
+        <span className="hidden sm:flex flex-col text-left xl:hidden">
           <span className="flex items-center gap-1">
             <span className="whitespace-nowrap font-body-md text-body-md font-semibold text-on-surface leading-tight">{user.nickname}</span>
             <span className="material-symbols-outlined text-[15px] text-tertiary">verified</span>

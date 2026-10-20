@@ -123,6 +123,3 @@ export const LIVE_TRADES: TickerTrade[] = [
   { name: { ko: "릴리에 엑스트라 배틀", en: "Lillie Extra Battle Day", ja: "リーリエ エクストラバトルの日" }, grade: "PSA 10", actionKey: "ticker.bidHit", krw: 12_100_000 },
   { name: { ko: "기라티나 V", en: "Giratina V", ja: "ギラティナV" }, grade: "PSA 10", actionKey: "ticker.soldFor", krw: 1_080_000 },
 ];
-
-/** 마켓플레이스 전체 매물 수 표기 (목업) */
-export const MARKET_TOTAL_COUNT = 1428;
