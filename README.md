@@ -64,6 +64,7 @@ PokeTrade는 이 문제들을 **DB 트랜잭션과 행 잠금**으로 막는 백
 - **마켓플레이스 UI**: 실시간 검색, 속성·등급·레어도 필터, 가격 범위 이중 슬라이더, 정렬
 - **결제 시뮬레이터**: 실제 PG 대신 Next.js 서버가 PG 역할을 맡아 백엔드에 입금 웹훅을 보냄
 - **다국어·통화·테마**: 한국어/English/日本語, KRW/USD 환산, 다크/라이트 모드
+- **데모(오프라인) 모드**: 백엔드에 연결할 수 없으면(예: 프론트만 Vercel에 배포) 차단 화면 대신 데모 매물 8건으로 모든 화면을 그리고, 결제는 브라우저 안에서 시뮬레이션합니다. 화면 우측 상단에 `● 데모 모드 (오프라인)` 뱃지만 표시됩니다.
 
 ---
 
@@ -447,7 +448,7 @@ npm install
 npm run dev
 ```
 
-기본값이 로컬 백엔드(`http://localhost:8080`)를 바라보므로 추가 설정 없이 동작합니다. 주소를 바꾸려면 [`frontend/.env.example`](frontend/.env.example)을 참고해 `.env.local`을 만드세요.
+기본값이 로컬 백엔드(`http://localhost:8080`)를 바라보므로 추가 설정 없이 동작합니다. 백엔드가 꺼져 있거나 주소에 연결할 수 없으면 자동으로 데모 모드로 실행됩니다. 주소를 바꾸려면 [`frontend/.env.example`](frontend/.env.example)을 참고해 `.env.local`을 만드세요.
 
 <details>
 <summary>Windows에서 Gradle이 <code>Unable to establish loopback connection</code>으로 실패할 때</summary>

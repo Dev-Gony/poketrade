@@ -8,6 +8,7 @@ import { useTranslation } from "@/i18n/I18nProvider";
 import { parseServerDateTime, type OrderResponse } from "@/lib/api/backend";
 import type { CardData } from "@/lib/cards";
 import { bankLabelKey, formatAccountNumber } from "@/lib/checkout";
+import { confirmDemoDeposit } from "@/lib/demoPayment";
 import { routes } from "@/lib/navigation";
 
 /** 입금 확인 로딩을 사람이 인지할 수 있도록 보장하는 최소 시간 */
@@ -21,11 +22,13 @@ type VirtualAccountModalProps = {
   card: CardData;
   onClose: () => void;
   onPaid: (order: OrderResponse) => void;
+  /** 백엔드 미연결 시 입금 웹훅을 브라우저 안에서 시뮬레이션 */
+  demoMode?: boolean;
 };
 
 const toIso = (value: string) => parseServerDateTime(value).toISOString();
 
-export default function VirtualAccountModal({ order, card, onClose, onPaid }: VirtualAccountModalProps) {
+export default function VirtualAccountModal({ order, card, onClose, onPaid, demoMode = false }: VirtualAccountModalProps) {
   const { t, pick, intlLocale } = useTranslation();
   const { currency, format } = useCurrency();
   const [phase, setPhase] = useState<Phase>(order.status === "PAID" ? "paid" : "awaiting");
@@ -67,16 +70,17 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid }: Vi
     setPhase("confirming");
     setError(false);
     try {
-      const [response] = await Promise.all([
-        fetch("/api/mock-pg/deposit", {
+      const deposit = async (): Promise<OrderResponse> => {
+        if (demoMode) return confirmDemoDeposit(order);
+        const response = await fetch("/api/mock-pg/deposit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId: order.orderId }),
-        }),
-        new Promise((resolve) => setTimeout(resolve, MIN_CONFIRM_MS)),
-      ]);
-      if (!response.ok) throw new Error(`deposit failed: ${response.status}`);
-      const { order: updated } = (await response.json()) as { order: OrderResponse };
+        });
+        if (!response.ok) throw new Error(`deposit failed: ${response.status}`);
+        return ((await response.json()) as { order: OrderResponse }).order;
+      };
+      const [updated] = await Promise.all([deposit(), new Promise((resolve) => setTimeout(resolve, MIN_CONFIRM_MS))]);
       if (updated.status !== "PAID") throw new Error(`unexpected status: ${updated.status}`);
       setPaidOrder(updated);
       setPhase("paid");

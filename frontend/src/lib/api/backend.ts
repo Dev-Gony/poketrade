@@ -124,9 +124,14 @@ type RequestOptions = {
   method?: "GET" | "POST";
   body?: unknown;
   headers?: Record<string, string>;
+  /** 응답 대기 상한(ms). 백엔드 주소가 응답하지 않을 때 페이지가 멈추지 않게 한다. */
+  timeoutMs?: number;
 };
 
-async function request<T>(base: string, path: string, { method = "GET", body, headers }: RequestOptions = {}): Promise<T> {
+const SERVER_TIMEOUT_MS = 5_000;
+const BROWSER_TIMEOUT_MS = 15_000;
+
+async function request<T>(base: string, path: string, { method = "GET", body, headers, timeoutMs }: RequestOptions = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${base}${path}`, {
@@ -135,6 +140,7 @@ async function request<T>(base: string, path: string, { method = "GET", body, he
       body: body !== undefined ? JSON.stringify(body) : undefined,
       // 재고 상태(판매중/거래중/판매완료)가 바로 반영돼야 하므로 캐시하지 않는다.
       cache: "no-store",
+      signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
     });
   } catch (cause) {
     throw new BackendError(0, "NETWORK", cause instanceof Error ? cause.message : "Backend unreachable");
@@ -148,10 +154,12 @@ async function request<T>(base: string, path: string, { method = "GET", body, he
 }
 
 /** 서버 컴포넌트·라우트 핸들러 전용 (BACKEND_URL 직접 호출) */
-export const serverApi = <T>(path: string, options?: RequestOptions) => request<T>(`${BACKEND_URL}/api`, path, options);
+export const serverApi = <T>(path: string, options?: RequestOptions) =>
+  request<T>(`${BACKEND_URL}/api`, path, { timeoutMs: SERVER_TIMEOUT_MS, ...options });
 
 /** 브라우저 전용 (CORS 로 백엔드 직접 호출) */
-export const browserApi = <T>(path: string, options?: RequestOptions) => request<T>(`${PUBLIC_BACKEND_URL}/api`, path, options);
+export const browserApi = <T>(path: string, options?: RequestOptions) =>
+  request<T>(`${PUBLIC_BACKEND_URL}/api`, path, { timeoutMs: BROWSER_TIMEOUT_MS, ...options });
 
 /**
  * 백엔드 LocalDateTime(타임존 없음, Asia/Seoul 기준)을 Date 로 변환한다.

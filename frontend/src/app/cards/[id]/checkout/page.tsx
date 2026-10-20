@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import BackendUnavailable from "@/components/BackendUnavailable";
 import CheckoutModal from "@/components/checkout/CheckoutModal";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import { T } from "@/i18n/I18nProvider";
-import { BACKEND_URL, BackendError } from "@/lib/api/backend";
 import { gradeText } from "@/lib/cards";
 import { CHECKOUT } from "@/lib/checkout";
-import { fetchListingByCardCode, type MarketListing } from "@/lib/listings";
+import { fetchListingByCardCode } from "@/lib/listings";
 import { routes } from "@/lib/navigation";
 
 type PageProps = {
@@ -18,19 +17,13 @@ type PageProps = {
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const listing = await fetchListingByCardCode(params.id).catch(() => null);
+  const { listing } = await fetchListingByCardCode(params.id);
   return { title: listing ? `Checkout · ${listing.card.name.en} ${gradeText(listing.card)} | PokeTrade Vault` : "PokeTrade Vault" };
 }
 
 /** 에스크로 결제. Navbar/Footer 는 루트 레이아웃에서 공통으로 렌더한다. */
 export default async function CheckoutPage({ params }: PageProps) {
-  let listing: MarketListing | null;
-  try {
-    listing = await fetchListingByCardCode(params.id);
-  } catch (error) {
-    if (error instanceof BackendError) return <BackendUnavailable backendUrl={BACKEND_URL} />;
-    throw error;
-  }
+  const { listing, source } = await fetchListingByCardCode(params.id);
   if (!listing) notFound();
 
   // 이미 거래 중이거나 판매된 매물은 결제 화면 대신 안내를 보여 준다.
@@ -57,5 +50,10 @@ export default async function CheckoutPage({ params }: PageProps) {
     );
   }
 
-  return <CheckoutModal cardHref={routes.card(listing.card.id)} data={CHECKOUT} listing={listing} />;
+  return (
+    <>
+      {source === "demo" && <DemoModeBadge />}
+      <CheckoutModal cardHref={routes.card(listing.card.id)} data={CHECKOUT} demoMode={source === "demo"} listing={listing} />
+    </>
+  );
 }

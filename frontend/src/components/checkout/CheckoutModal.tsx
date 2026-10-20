@@ -8,9 +8,11 @@ type CheckoutModalProps = {
   listing: MarketListing;
   data: CheckoutData;
   cardHref: string;
+  /** 백엔드 미연결 시 결제를 브라우저 안에서만 시뮬레이션 */
+  demoMode?: boolean;
 };
 
-export default function CheckoutModal({ listing, data, cardHref }: CheckoutModalProps) {
+export default function CheckoutModal({ listing, data, cardHref, demoMode = false }: CheckoutModalProps) {
   return (
     <div className="flex flex-col w-full relative">
       {/* Ambient Atmospheric Glowing Orbs */}
@@ -92,7 +94,7 @@ export default function CheckoutModal({ listing, data, cardHref }: CheckoutModal
           {/* Split Two-Column Core */}
           <div className="grid grid-cols-1 lg:grid-cols-12 w-full">
             <CheckoutSummary card={listing.card} data={data} />
-            <PaymentPanel cardHref={cardHref} data={data} listing={listing} />
+            <PaymentPanel cardHref={cardHref} data={data} demoMode={demoMode} listing={listing} />
           </div>
 
           {/* Live Settlement Status Strip */}

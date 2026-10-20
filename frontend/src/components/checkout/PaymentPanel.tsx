@@ -7,6 +7,7 @@ import type { TranslationKey } from "@/i18n/dictionaries";
 import { useTranslation } from "@/i18n/I18nProvider";
 import { BACKEND_ERROR_CODES, BackendError, browserApi, type OrderResponse } from "@/lib/api/backend";
 import { BANKS, type BankCode, type CheckoutData } from "@/lib/checkout";
+import { createDemoOrder } from "@/lib/demoPayment";
 import type { MarketListing } from "@/lib/listings";
 import { useSession } from "@/session/SessionProvider";
 import VirtualAccountModal from "./VirtualAccountModal";
@@ -49,9 +50,11 @@ type PaymentPanelProps = {
   listing: MarketListing;
   data: CheckoutData;
   cardHref: string;
+  /** 백엔드 미연결 시 주문·가상계좌 발급을 브라우저 안에서 시뮬레이션 */
+  demoMode?: boolean;
 };
 
-export default function PaymentPanel({ listing, data, cardHref }: PaymentPanelProps) {
+export default function PaymentPanel({ listing, data, cardHref, demoMode = false }: PaymentPanelProps) {
   const { card } = listing;
   const { t } = useTranslation();
   const { user } = useSession();
@@ -94,11 +97,14 @@ export default function PaymentPanel({ listing, data, cardHref }: PaymentPanelPr
     setStatus("issuing");
     try {
       // 즉시 구매: 백엔드가 매물을 비관적 락으로 선점(RESERVED)하고 가상계좌를 발급한다.
-      const created = await browserApi<OrderResponse>("/orders", {
-        method: "POST",
-        headers: { "X-User-Id": String(user.id) },
-        body: { listingId: listing.listingId, bank, depositorName: depositor.trim() || undefined },
-      });
+      // 데모 모드에서는 백엔드가 없으므로 같은 형태의 주문을 브라우저에서 만든다.
+      const created = demoMode
+        ? await createDemoOrder({ listingId: listing.listingId, amount: totalKrw, buyerId: user.id, bank, depositorName: depositor })
+        : await browserApi<OrderResponse>("/orders", {
+            method: "POST",
+            headers: { "X-User-Id": String(user.id) },
+            body: { listingId: listing.listingId, bank, depositorName: depositor.trim() || undefined },
+          });
       setOrder(created);
       setStatus("issued");
       setModalOpen(true);
@@ -372,6 +378,7 @@ export default function PaymentPanel({ listing, data, cardHref }: PaymentPanelPr
       {modalOpen && order && (
         <VirtualAccountModal
           card={card}
+          demoMode={demoMode}
           onClose={() => setModalOpen(false)}
           onPaid={(paid) => {
             // 여기서 router.refresh() 를 하면 결제 페이지가 "판매 완료" 안내로 다시 그려져 영수증이 사라진다.

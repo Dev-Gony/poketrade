@@ -4,12 +4,11 @@ import { notFound } from "next/navigation";
 import CardDetails from "@/components/CardDetails";
 import SlabViewer from "@/components/SlabViewer";
 import TransactionBox from "@/components/TransactionBox";
-import BackendUnavailable from "@/components/BackendUnavailable";
+import DemoModeBadge from "@/components/DemoModeBadge";
 import ListingStatusBadge from "@/components/ListingStatusBadge";
 import { L, T } from "@/i18n/I18nProvider";
-import { BACKEND_URL, BackendError } from "@/lib/api/backend";
 import { getMarketStats, GRADE_STYLES, gradeText } from "@/lib/cards";
-import { fetchListingByCardCode, type MarketListing } from "@/lib/listings";
+import { fetchListingByCardCode } from "@/lib/listings";
 import { routes } from "@/lib/navigation";
 
 type PageProps = {
@@ -20,25 +19,20 @@ type PageProps = {
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const listing = await fetchListingByCardCode(params.id).catch(() => null);
+  const { listing } = await fetchListingByCardCode(params.id);
   return { title: listing ? `${listing.card.name.en} ${gradeText(listing.card)} | PokeTrade Vault` : "PokeTrade Vault" };
 }
 
 /** 카드 상세. Navbar/Footer 는 루트 레이아웃에서 공통으로 렌더한다. */
 export default async function CardDetailPage({ params }: PageProps) {
-  let listing: MarketListing | null;
-  try {
-    listing = await fetchListingByCardCode(params.id);
-  } catch (error) {
-    if (error instanceof BackendError) return <BackendUnavailable backendUrl={BACKEND_URL} />;
-    throw error;
-  }
+  const { listing, source } = await fetchListingByCardCode(params.id);
   if (!listing) notFound();
   const { card } = listing;
   const market = getMarketStats(card, listing.priceKrw);
 
   return (
     <div className="max-w-7xl mx-auto px-margin py-space-lg w-full">
+      {source === "demo" && <DemoModeBadge />}
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm mb-space-lg">
         <Link className="hover:text-primary transition-colors flex items-center gap-1 shrink-0" href={routes.marketplace}>
