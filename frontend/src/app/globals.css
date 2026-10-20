@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    overscroll-behavior: none;
+  }
+  main > :first-child {
+    margin-top: 0 !important;
+  }
+  main > :last-child {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* 테마 전환 순간에만 붙는 클래스. 상시 transition 을 걸면 기존 transform/opacity 애니메이션을 덮어쓰므로 일시적으로만 사용한다. */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
+  transition-duration: 300ms !important;
+  transition-timing-function: ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transition,
+  html.theme-transition * {
+    transition: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* 가격 범위 이중 슬라이더: range 입력 두 개를 겹치고, 트랙은 클릭을 통과시키며 손잡이만 드래그를 받는다. */
+.dual-range-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.dual-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 100%;
+}
+.dual-range-input::-moz-range-track {
+  background: transparent;
+}
+.dual-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--color-surface-container-lowest));
+  cursor: grab;
+  transition: transform 120ms ease;
+}
+.dual-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--color-surface-container-lowest));
+  cursor: grab;
+}
+.dual-range-input:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+.dual-range-min::-webkit-slider-thumb {
+  background: rgb(var(--color-primary));
+}
+.dual-range-min::-moz-range-thumb {
+  background: rgb(var(--color-primary));
+}
+.dual-range-max::-webkit-slider-thumb {
+  background: rgb(var(--color-secondary));
+  box-shadow: 0 0 8px rgb(var(--color-secondary) / 0.6);
+}
+.dual-range-max::-moz-range-thumb {
+  background: rgb(var(--color-secondary));
+}
+.dual-range-input:focus-visible {
+  outline: none;
+}
+.dual-range-input:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid rgb(var(--color-primary));
+  outline-offset: 2px;
+}
+.dual-range-input:disabled::-webkit-slider-thumb {
+  cursor: not-allowed;
+}
+
+/* animate-ticker 의 keyframes/animation 은 tailwind.config.ts 에서 생성되고,
+   원본 .animate-ticker 의 나머지 속성만 여기서 보완한다. */
+@layer utilities {
+  .animate-ticker {
+    display: inline-flex;
+    white-space: nowrap;
+  }
+  .animate-ticker:hover {
+    animation-play-state: paused;
+  }
+}

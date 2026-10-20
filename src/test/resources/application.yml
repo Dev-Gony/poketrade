@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:pocket-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+app:
+  order:
+    payment-due-hours: 24
+  payment:
+    webhook-secret: test-webhook-secret
+  scheduling:
+    enabled: false

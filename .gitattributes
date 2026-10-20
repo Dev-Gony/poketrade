@@ -1,0 +1,4 @@
+# Gradle 래퍼 스크립트는 OS 에 맞는 줄바꿈을 유지해야 실행된다.
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

@@ -1,0 +1,15 @@
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.vscode/
+*.log
+.gradle-tmp/
+
+# 로컬 비밀 설정 (DB 접속 정보 등)
+.env.properties
+.env
+
+# IDE(Eclipse/VS Code Java) 빌드 출력
+bin/
