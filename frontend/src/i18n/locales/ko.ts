@@ -283,6 +283,7 @@ export const ko: Dictionary = {
   "detail.unavailableReserved": "다른 구매자가 결제를 진행 중인 매물입니다.",
   "detail.unavailableSold": "이미 판매가 완료된 매물입니다.",
   "demo.badge": "데모 모드 (오프라인)",
+  "demo.tooltipTcg": "거래 서버에 연결되지 않아 Pokémon TCG API의 실제 카드에 예시 시세·등급·판매자를 붙여 보여 주고 있습니다. 결제는 브라우저 안에서만 시뮬레이션됩니다.",
   "demo.tooltip": "거래 서버에 연결되지 않아 예시 데이터를 보여 주고 있습니다. 결제는 브라우저 안에서만 시뮬레이션됩니다.",
   "order.error.L002": "방금 다른 구매자가 먼저 구매해 결제할 수 없습니다.",
   "order.error.L004": "본인이 등록한 매물은 구매할 수 없습니다.",

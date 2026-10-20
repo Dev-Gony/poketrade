@@ -292,6 +292,7 @@ export const en = {
   "detail.unavailableReserved": "Another buyer is completing payment for this card.",
   "detail.unavailableSold": "This card has already been sold.",
   "demo.badge": "Demo mode (offline)",
+  "demo.tooltipTcg": "The trading server is unreachable, so listings are built from real cards in the Pokémon TCG API with sample prices, grades and sellers. Payments are only simulated in your browser.",
   "demo.tooltip": "The trading server is unreachable, so sample data is shown. Payments are only simulated in your browser.",
   "order.error.L002": "Another buyer just took this card, so it can no longer be purchased.",
   "order.error.L004": "You cannot buy your own listing.",

@@ -36,6 +36,8 @@ export type ListingResponse = {
     releaseYear: number | null;
     cardNumber: string;
     rarity: BackendCardRarity;
+    /** 외부 카탈로그(Pokémon TCG API)의 레어도 원문. 백엔드 응답에는 없다. */
+    rarityLabel?: string | null;
     category: string | null;
     energyType: BackendEnergyType | null;
     printLanguage: string | null;

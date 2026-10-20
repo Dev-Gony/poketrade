@@ -122,7 +122,7 @@ export function toCardData(listing: ListingResponse): CardData {
     setName: card.setName,
     year: card.releaseYear,
     cardNumber: card.cardNumber,
-    rarity: RARITY_LABELS[card.rarity] ?? card.rarity,
+    rarity: card.rarityLabel ?? RARITY_LABELS[card.rarity] ?? card.rarity,
     classification: energyLabel && card.energyType !== "TRAINER" ? `${category} / ${energyLabel}` : category,
     energyType: card.energyType ? (card.energyType.toLowerCase() as EnergyType) : null,
     rarityTags: deriveRarityTags(card.rarity, printLanguage),

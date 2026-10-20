@@ -6,7 +6,7 @@ import DemoModeBadge from "@/components/DemoModeBadge";
 import { T } from "@/i18n/I18nProvider";
 import { gradeText } from "@/lib/cards";
 import { CHECKOUT } from "@/lib/checkout";
-import { fetchListingByCardCode } from "@/lib/listings";
+import { fetchListingByCardCode, isDemoSource } from "@/lib/listings";
 import { routes } from "@/lib/navigation";
 
 type PageProps = {
@@ -52,8 +52,8 @@ export default async function CheckoutPage({ params }: PageProps) {
 
   return (
     <>
-      {source === "demo" && <DemoModeBadge />}
-      <CheckoutModal cardHref={routes.card(listing.card.id)} data={CHECKOUT} demoMode={source === "demo"} listing={listing} />
+      {isDemoSource(source) && <DemoModeBadge source={source} />}
+      <CheckoutModal cardHref={routes.card(listing.card.id)} data={CHECKOUT} demoMode={isDemoSource(source)} listing={listing} />
     </>
   );
 }

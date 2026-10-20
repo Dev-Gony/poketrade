@@ -284,6 +284,7 @@ export const ja: Dictionary = {
   "detail.unavailableReserved": "他の購入者が決済手続き中の商品です。",
   "detail.unavailableSold": "この商品はすでに売り切れました。",
   "demo.badge": "デモモード（オフライン）",
+  "demo.tooltipTcg": "取引サーバーに接続できないため、Pokémon TCG API の実在カードにサンプルの相場・グレード・出品者を付けて表示しています。決済はブラウザ内でのみシミュレーションされます。",
   "demo.tooltip": "取引サーバーに接続できないため、サンプルデータを表示しています。決済はブラウザ内でのみシミュレーションされます。",
   "order.error.L002": "直前に他の購入者が購入したため決済できません。",
   "order.error.L004": "ご自身の出品は購入できません。",

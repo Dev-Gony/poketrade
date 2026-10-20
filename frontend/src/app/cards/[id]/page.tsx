@@ -8,7 +8,7 @@ import DemoModeBadge from "@/components/DemoModeBadge";
 import ListingStatusBadge from "@/components/ListingStatusBadge";
 import { L, T } from "@/i18n/I18nProvider";
 import { getMarketStats, GRADE_STYLES, gradeText } from "@/lib/cards";
-import { fetchListingByCardCode } from "@/lib/listings";
+import { fetchListingByCardCode, isDemoSource } from "@/lib/listings";
 import { routes } from "@/lib/navigation";
 
 type PageProps = {
@@ -32,7 +32,7 @@ export default async function CardDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-margin py-space-lg w-full">
-      {source === "demo" && <DemoModeBadge />}
+      {isDemoSource(source) && <DemoModeBadge source={source} />}
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-space-xs text-on-surface-variant font-body-sm text-body-sm mb-space-lg">
         <Link className="hover:text-primary transition-colors flex items-center gap-1 shrink-0" href={routes.marketplace}>

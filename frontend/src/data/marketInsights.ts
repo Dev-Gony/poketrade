@@ -3,6 +3,7 @@
 // TODO: 시세 API(30일 변동률·PSA 개체수), 판매자 평판 API, 실시간 체결 피드가 생기면 이 파일을 제거한다.
 
 import type { LocalizedText, TranslationKey } from "@/i18n/dictionaries";
+import { randomBetween, randomInt, seededRandom } from "@/lib/seeded";
 
 export type CardInsights = {
   /** 30일 시세 변동률 (%) */
@@ -16,13 +17,27 @@ export type CardInsights = {
   seller: { rating: string; trades: number; positivePct: string; avgResponseMinutes: number; memberSince: string };
 };
 
-const DEFAULT_INSIGHTS: CardInsights = {
-  change30dPct: 0,
-  population: 0,
-  higherGradedCount: 0,
-  vaultBox: "SL-0000",
-  seller: { rating: "5.0", trades: 0, positivePct: "100.0", avgResponseMinutes: 30, memberSince: "2024-01" },
-};
+/**
+ * 고정값이 없는 카드(예: Pokémon TCG API 에서 가져온 카드)는 카드 코드 시드로 그럴듯한 값을 만든다.
+ * 같은 카드는 항상 같은 값을 받는다.
+ */
+function generateInsights(code: string): CardInsights {
+  const rng = seededRandom(`insights:${code}`);
+  const population = randomInt(rng, 40, 6_000);
+  return {
+    change30dPct: Math.round(randomBetween(rng, -8, 16) * 10) / 10,
+    population,
+    higherGradedCount: rng() < 0.6 ? 0 : randomInt(rng, 1, Math.max(1, Math.floor(population / 3))),
+    vaultBox: `SL-${String(randomInt(rng, 1, 1999)).padStart(4, "0")}`,
+    seller: {
+      rating: randomBetween(rng, 4.8, 5).toFixed(2).replace(/0$/, ""),
+      trades: randomInt(rng, 12, 520),
+      positivePct: randomBetween(rng, 98.5, 100).toFixed(1),
+      avgResponseMinutes: randomInt(rng, 3, 45),
+      memberSince: `${randomInt(rng, 2019, 2025)}-${String(randomInt(rng, 1, 12)).padStart(2, "0")}`,
+    },
+  };
+}
 
 /** 백엔드 Card.code 별 부가 정보 */
 const CARD_INSIGHTS: Record<string, CardInsights> = {
@@ -85,7 +100,7 @@ const CARD_INSIGHTS: Record<string, CardInsights> = {
 };
 
 export function getCardInsights(code: string): CardInsights {
-  return CARD_INSIGHTS[code] ?? DEFAULT_INSIGHTS;
+  return CARD_INSIGHTS[code] ?? generateInsights(code);
 }
 
 // ---------------------------------------------------------------------------
