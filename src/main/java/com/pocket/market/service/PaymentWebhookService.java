@@ -9,6 +9,7 @@ import com.pocket.market.dto.webhook.WebhookResponse;
 import com.pocket.market.dto.webhook.WebhookResponse.Result;
 import com.pocket.market.exception.BusinessException;
 import com.pocket.market.exception.ErrorCode;
+import com.pocket.market.repository.LockTimeout;
 import com.pocket.market.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ public class PaymentWebhookService {
 
     private final OrderRepository orderRepository;
     private final AppProperties appProperties;
+    private final LockTimeout lockTimeout;
 
     /**
      * 가상계좌 입금 통보 처리.
@@ -43,6 +45,7 @@ public class PaymentWebhookService {
             return WebhookResponse.of(Result.IGNORED, request.orderNo());
         }
 
+        lockTimeout.apply();
         Order order = orderRepository.findByOrderNoForUpdate(request.orderNo())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 

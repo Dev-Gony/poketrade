@@ -79,7 +79,7 @@ PokeTrade는 이 문제들을 **DB 트랜잭션과 행 잠금**으로 막는 백
 | Backend | **Java 17**, **Spring Boot 3.3** | DTO 를 record 로 간결하게 표현, Jakarta EE 기반의 안정적인 LTS 조합 |
 | ORM | **Spring Data JPA** (Hibernate 6) | `@Lock(PESSIMISTIC_WRITE)`로 행 잠금을 선언적으로 표현, Auditing으로 생성·수정 시각 자동 기록 |
 | Database | **Neon PostgreSQL** | 서버리스 PostgreSQL. `SELECT … FOR UPDATE` 행 잠금과 unique 제약을 그대로 활용 |
-| 테스트 DB | H2 (MySQL 모드) | 외부 DB 없이 동시성·웹훅 통합 테스트를 빠르게 실행 |
+| 테스트 DB | H2 (MySQL 모드) + **PostgreSQL 16 (Testcontainers)** | H2로 빠르게, 운영과 같은 PostgreSQL 컨테이너로 한 번 더 동시성·웹훅·잠금 대기 상한을 검증 |
 | API 문서 | springdoc-openapi (Swagger UI) | 컨트롤러 어노테이션에서 API 문서 자동 생성 |
 | Frontend | **Next.js 14** (App Router), React 18, **TypeScript** | 서버 컴포넌트로 매물을 요청마다 새로 조회하고, Route Handler로 모의 PG를 같은 프로젝트에 구성 |
 | Styling | Tailwind CSS 3 | CSS 변수 기반 디자인 토큰으로 다크/라이트 테마 전환 |
@@ -259,9 +259,20 @@ T2: UPDATE RESERVED, INSERT order   ← 이중 판매
 ```java
 // ListingRepository.java
 @Lock(LockModeType.PESSIMISTIC_WRITE)
-@QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
 @Query("select l from Listing l where l.id = :id")
 Optional<Listing> findByIdForUpdate(@Param("id") Long id);
+```
+
+```java
+// LockTimeout.java: PostgreSQL 에서 이 트랜잭션의 잠금 대기를 3초로 제한 (SET LOCAL lock_timeout 과 같음)
+@Transactional(propagation = Propagation.MANDATORY)
+public void apply() {
+    if (postgres) {
+        entityManager.createNativeQuery("select set_config('lock_timeout', :timeout, true)")
+                .setParameter("timeout", timeout)   // "3000ms"
+                .getSingleResult();
+    }
+}
 ```
 
 ```java
@@ -270,7 +281,8 @@ Optional<Listing> findByIdForUpdate(@Param("id") Long id);
 public OrderResponse placeOrder(Long buyerId, Long listingId, VirtualAccountBank bank, String depositorName) {
     User buyer = userRepository.findById(buyerId).orElseThrow(...);
 
-    // ① 매물 행 잠금. 뒤따르는 트랜잭션은 앞선 트랜잭션이 커밋할 때까지 여기서 대기
+    // ① 매물 행 잠금. 뒤따르는 트랜잭션은 앞선 트랜잭션이 커밋할 때까지 여기서 대기 (최대 3초)
+    lockTimeout.apply();
     Listing listing = listingRepository.findByIdForUpdate(listingId).orElseThrow(...);
     if (listing.isSoldBy(buyerId)) throw new BusinessException(SELF_PURCHASE_NOT_ALLOWED);
 
@@ -294,7 +306,8 @@ public void reserve() {
 ```
 
 - 실패한 요청은 `409 { code: "L002" }`로 응답합니다. 프론트는 "방금 다른 구매자가 먼저 구매해 결제할 수 없습니다"를 보여 줍니다.
-- 잠금 대기 중 타임아웃 등 `PessimisticLockingFailureException`이 나면 전역 예외 처리기가 `409 C002`(잠시 후 다시 시도)로 바꿔 응답합니다.
+- 잠금 대기는 DB 수준에서 3초로 제한됩니다. 처음에는 JPA 힌트(`jakarta.persistence.lock.timeout`)로 지정했지만, PostgreSQL에서 확인해 보니 Hibernate 6가 이 힌트를 SQL로 옮기지 못해 **잠금이 풀릴 때까지 무한정 대기**했습니다. 그래서 잠금 조회 직전에 트랜잭션 단위 `lock_timeout`을 거는 방식으로 바꿨습니다.
+- 3초를 넘기면 PostgreSQL이 `55P03`을 내고, Spring의 `PessimisticLockingFailureException`을 거쳐 전역 예외 처리기가 `409 C002`(잠시 후 다시 시도)로 바꿔 응답합니다. `LockTimeoutPostgresTest`가 이 경로를 검증합니다.
 
 ### 검증
 
@@ -309,6 +322,8 @@ public void reserve() {
 | 실패한 주문 | 19건, 모두 `LISTING_NOT_AVAILABLE` |
 | 생성된 주문 행 수 | 1 |
 | 최종 매물 상태 | `RESERVED` |
+
+같은 테스트를 H2와 **PostgreSQL 16 컨테이너**(`OrderConcurrencyPostgresTest`) 양쪽에서 실행하며 결과는 같습니다.
 
 화면에서도 같은 상황을 확인했습니다. 구매자 A가 결제 화면을 열어 둔 사이 다른 사용자가 API로 먼저 주문하자, A의 결제 버튼은 `409 L002` 안내를 보여 줬습니다.
 
@@ -421,13 +436,18 @@ public WebhookResponse handleVirtualAccountDeposit(String secret, VirtualAccount
 
 푸시할 때마다 GitHub Actions가 같은 테스트와 프론트엔드 lint·build를 실행합니다. 각 실행의 **Summary**에서 테스트 결과 표와 동시성 검증 수치를 볼 수 있습니다.
 
-| 테스트 클래스 | 개수 | 내용 |
-| --- | --- | --- |
-| `OrderConcurrencyTest` | 1 | 20명 동시 주문 시 1건만 성공 |
-| `PaymentWebhookServiceTest` | 6 | 멱등성, 동시 중복 수신, 금액 검증, 이중 결제, 시크릿 검증 |
-| `CorsConfigTest` | 4 | 프론트 출처 preflight 허용, 외부 출처·웹훅 경로 거부 |
+| 테스트 클래스 | DB | 개수 | 내용 |
+| --- | --- | --- | --- |
+| `OrderConcurrencyTest` | H2 | 1 | 20명 동시 주문 시 1건만 성공 |
+| `OrderConcurrencyPostgresTest` | PostgreSQL 16 | 1 | 위와 같은 테스트를 PostgreSQL에서 실행 |
+| `PaymentWebhookServiceTest` | H2 | 6 | 멱등성, 동시 중복 수신, 금액 검증, 이중 결제, 시크릿 검증 |
+| `PaymentWebhookServicePostgresTest` | PostgreSQL 16 | 6 | 위와 같은 테스트를 PostgreSQL에서 실행 |
+| `LockTimeoutPostgresTest` | PostgreSQL 16 | 2 | 매물·주문 행이 잠긴 동안 구매·입금 웹훅이 약 3초 뒤 `409 C002`로 실패하고 데이터는 그대로 |
+| `CorsConfigTest` | H2 | 4 | 프론트 출처 preflight 허용, 외부 출처·웹훅 경로 거부 |
 
-테스트는 H2 인메모리 DB(MySQL 모드)에서 실행되므로 Neon 데이터에 영향을 주지 않습니다.
+- `…PostgresTest`는 [Testcontainers](src/test/java/com/pocket/market/support/PostgresContainers.java)가 Docker로 `postgres:16-alpine` 컨테이너를 띄워 실행합니다. **Docker가 없으면 건너뛰고** H2 테스트만 실행되므로 로컬에서도 `./gradlew test`는 그대로 통과합니다.
+- CI(GitHub Actions, Docker 있음)에서는 PostgreSQL 테스트가 건너뛰어지면 빌드를 실패시킵니다.
+- 테스트는 H2 인메모리 DB나 테스트가 직접 띄운 컨테이너에서만 실행되므로 Neon 데이터에 영향을 주지 않습니다.
 
 ---
 
@@ -519,8 +539,8 @@ $env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=C:\github\pocket\.gradle-t
 | --- | --- |
 | 인증 없이 `X-User-Id` 헤더로 사용자 구분 | Spring Security + JWT, 주문·웹훅 API 권한 분리 |
 | 가상계좌는 임의 번호 발급(`FakeVirtualAccountIssuer`) | 실제 PG(토스페이먼츠 등) 연동. 인터페이스로 분리해 두어 구현체만 교체하면 됨 |
-| 동시성 테스트를 H2에서 실행 | Testcontainers로 PostgreSQL 위에서 같은 테스트 실행 |
-| 잠금 대기 상한을 JPA 힌트(3초)로만 지정 | PostgreSQL `lock_timeout` 세션 설정으로 대기 상한을 DB 수준에서 보장 |
+| 동시성·잠금 테스트는 일반 PostgreSQL 16 컨테이너에서 실행 (Neon 풀러·컴퓨트 일시 중지 같은 환경 차이는 미검증) | Neon 브랜치 DB를 쓰는 별도 스테이징 테스트 |
+| 잠금 대기 상한 3초는 짧은 트랜잭션을 가정한 값 | 부하 테스트(k6 등)로 대기 상한과 커넥션 풀 크기를 함께 조정 |
 | `ddl-auto: update`로 스키마 관리 | Flyway 마이그레이션 + `validate` |
 | 웹훅 처리 결과를 주문 테이블로만 추적 | 수신 원문을 저장하는 웹훅 이벤트(inbox) 테이블로 감사 로그·재처리 지원 |
 | 매물 전체를 받아 브라우저에서 검색·필터 | 매물이 늘면 검색·필터·페이지네이션을 백엔드 쿼리로 이전 |

@@ -6,7 +6,9 @@ spring:
     password:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # create: 시작할 때 지우고 다시 만든다. create-drop 은 종료 시점에 이미 내려간 Testcontainers DB 에
+      # DROP 을 시도하느라 30초를 기다리므로 쓰지 않는다. (H2·PostgreSQL 테스트 공통)
+      ddl-auto: create
     open-in-view: false
 
 app:

@@ -49,6 +49,9 @@ app:
     webhook-secret: local-webhook-secret
   scheduling:
     enabled: true
+  lock:
+    # 비관적 락 대기 상한(ms). PostgreSQL 에서는 트랜잭션 단위 lock_timeout 으로 적용된다 (LockTimeout).
+    timeout-ms: 3000
   cors:
     # 브라우저(Next.js)에서 매물·주문 API 를 직접 호출할 수 있는 출처 패턴 (콤마 구분)
     allowed-origin-patterns: http://localhost:[*],http://127.0.0.1:[*]

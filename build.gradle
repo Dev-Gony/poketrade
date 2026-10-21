@@ -23,6 +23,10 @@ repositories {
     mavenCentral()
 }
 
+// Spring Boot 3.3 가 관리하는 Testcontainers 1.19.x 는 Docker Engine 29 이상(최소 API 버전 상향)에 접속하지 못해
+// 테스트가 "Docker 없음"으로 건너뛰어진다. Docker 29 를 지원하는 1.x 최신 버전으로 올린다.
+ext['testcontainers.version'] = '1.21.4'
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -37,6 +41,10 @@ dependencies {
     runtimeOnly 'com.mysql:mysql-connector-j'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // 동시성 테스트를 운영 DB 와 같은 PostgreSQL 컨테이너에서도 실행 (Docker 가 없으면 건너뜀)
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

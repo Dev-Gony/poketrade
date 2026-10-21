@@ -9,6 +9,7 @@ import com.pocket.market.dto.order.OrderResponse;
 import com.pocket.market.exception.BusinessException;
 import com.pocket.market.exception.ErrorCode;
 import com.pocket.market.repository.ListingRepository;
+import com.pocket.market.repository.LockTimeout;
 import com.pocket.market.repository.OrderRepository;
 import com.pocket.market.repository.UserRepository;
 import com.pocket.market.service.payment.VirtualAccountBank;
@@ -32,11 +33,13 @@ public class OrderService {
     private final ListingRepository listingRepository;
     private final UserRepository userRepository;
     private final VirtualAccountIssuer virtualAccountIssuer;
+    private final LockTimeout lockTimeout;
     private final AppProperties appProperties;
 
     /**
      * 즉시 구매.
      * 1) 매물 행을 PESSIMISTIC_WRITE(SELECT ... FOR UPDATE)로 잠가 동시 요청을 직렬화한다.
+     *    대기 상한은 LockTimeout(PostgreSQL lock_timeout)으로 걸고, 넘기면 409 C002 로 응답한다.
      * 2) 상태가 ON_SALE 인 경우에만 RESERVED 로 전이(재고 선점)하고 주문을 생성한다.
      * 3) 뒤따르는 요청은 락 해제 후 RESERVED 상태를 읽고 LISTING_NOT_AVAILABLE 로 실패한다.
      */
@@ -54,6 +57,7 @@ public class OrderService {
         User buyer = userRepository.findById(buyerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        lockTimeout.apply();
         Listing listing = listingRepository.findByIdForUpdate(listingId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LISTING_NOT_FOUND));
 
@@ -91,6 +95,7 @@ public class OrderService {
      */
     @Transactional
     public boolean expireOrder(Long orderId, LocalDateTime now) {
+        lockTimeout.apply();
         Order order = orderRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 

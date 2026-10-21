@@ -24,10 +24,10 @@
 | 순서 | 코드 | 하는 일 |
 | --- | --- | --- |
 | ① | [`OrderController`](../src/main/java/com/pocket/market/controller/OrderController.java) | `POST /api/orders` 요청을 받아 `OrderService.placeOrder` 호출 (`@Transactional` 시작) |
-| ② | [`OrderService.placeOrder` L53–57](../src/main/java/com/pocket/market/service/OrderService.java#L53-L57) | `listingRepository.findByIdForUpdate(listingId)`로 **매물 행 잠금 획득** |
-| ③ | [`ListingRepository.findByIdForUpdate` L25–28](../src/main/java/com/pocket/market/repository/ListingRepository.java#L25-L28) | `@Lock(PESSIMISTIC_WRITE)` → SQL `select … from listings where id=? for update` |
-| ④ | [`OrderService` L64](../src/main/java/com/pocket/market/service/OrderService.java#L64) → [`Listing.reserve` L101–103](../src/main/java/com/pocket/market/domain/listing/Listing.java#L101-L103) | 상태가 `ON_SALE`이면 `RESERVED`로 전이, 아니면 `LISTING_NOT_AVAILABLE` 예외 |
-| ⑤ | [`OrderService` L67](../src/main/java/com/pocket/market/service/OrderService.java#L67) | 주문 생성(금액 스냅샷) + 가상계좌 발급 → 커밋하면서 **잠금 해제** |
+| ② | [`OrderService.placeOrder` L60–62](../src/main/java/com/pocket/market/service/OrderService.java#L60-L62) | `lockTimeout.apply()`로 대기 상한(3초)을 건 뒤 `listingRepository.findByIdForUpdate(listingId)`로 **매물 행 잠금 획득** |
+| ③ | [`ListingRepository.findByIdForUpdate` L24–26](../src/main/java/com/pocket/market/repository/ListingRepository.java#L24-L26) | `@Lock(PESSIMISTIC_WRITE)` → SQL `select … from listings where id=? for update` |
+| ④ | [`OrderService` L68](../src/main/java/com/pocket/market/service/OrderService.java#L68) → [`Listing.reserve` L101–103](../src/main/java/com/pocket/market/domain/listing/Listing.java#L101-L103) | 상태가 `ON_SALE`이면 `RESERVED`로 전이, 아니면 `LISTING_NOT_AVAILABLE` 예외 |
+| ⑤ | [`OrderService` L71](../src/main/java/com/pocket/market/service/OrderService.java#L71) | 주문 생성(금액 스냅샷) + 가상계좌 발급 → 커밋하면서 **잠금 해제** |
 | ⑥ | [`ErrorCode` L23](../src/main/java/com/pocket/market/exception/ErrorCode.java#L23) | 실패한 요청은 `409 { "code": "L002" }`로 응답 |
 
 핵심은 **②에서 잠금을 잡은 뒤에 ④에서 상태를 확인**한다는 점입니다. 확인과 변경 사이에 다른 트랜잭션이 끼어들 수 없습니다.
@@ -54,7 +54,8 @@ sequenceDiagram
 ```
 
 - B는 "먼저 읽고 나중에 실패"하는 것이 아니라, **A의 결과가 확정된 뒤에야 읽습니다.** 그래서 B는 주문 생성이나 가상계좌 발급 같은 작업을 하기 전에 바로 실패합니다.
-- 잠금을 기다리다 시간이 초과되면 `PessimisticLockingFailureException`이 발생하고, [`GlobalExceptionHandler` L46](../src/main/java/com/pocket/market/exception/GlobalExceptionHandler.java#L46)이 이를 `409 C002`(잠시 후 다시 시도)로 바꿉니다.
+- 잠금 대기는 최대 3초입니다. PostgreSQL에서는 잠금 조회 직전에 [`LockTimeout`](../src/main/java/com/pocket/market/repository/LockTimeout.java)이 현재 트랜잭션에만 `lock_timeout = 3000ms`를 겁니다(`SET LOCAL`과 같아서 커넥션 풀로 새지 않습니다). 시간이 초과되면 PostgreSQL이 `55P03 lock_not_available`을 내고, Spring이 이를 `PessimisticLockingFailureException`으로 바꾸며, [`GlobalExceptionHandler` L46](../src/main/java/com/pocket/market/exception/GlobalExceptionHandler.java#L46)이 `409 C002`(잠시 후 다시 시도)로 응답합니다.
+- JPA 힌트 `jakarta.persistence.lock.timeout`만으로는 안 됩니다. Hibernate 6의 PostgreSQL 방언은 이 값을 SQL로 옮기지 못해(PostgreSQL에는 `FOR UPDATE WAIT n`이 없습니다) 그냥 `for update`를 보냅니다. 실제로 힌트만 둔 상태에서 잠금을 15초 쥐고 있었더니 요청도 15초를 다 기다렸습니다. 그래서 힌트를 지우고 `lock_timeout`으로 바꿨습니다.
 
 ## 4. 직접 확인하는 방법
 
@@ -63,17 +64,25 @@ sequenceDiagram
 저장소의 **Actions → CI → 최근 실행 → Summary**에 테스트 결과 표와 아래 줄이 표시됩니다.
 
 ```
+LockTimeoutPostgresTest — 매물 행 잠금 중 구매 요청 → HTTP 409, 3020 ms 대기 후 응답
+LockTimeoutPostgresTest — 주문 행 잠금 중 입금 웹훅 → HTTP 409, 3351 ms 대기 후 응답
+OrderConcurrencyPostgresTest — 20명 동시 주문 → 성공 1건, 실패 19건 (LISTING_NOT_AVAILABLE 19건), 생성된 주문 1건, 매물 상태 RESERVED
 OrderConcurrencyTest — 20명 동시 주문 → 성공 1건, 실패 19건 (LISTING_NOT_AVAILABLE 19건), 생성된 주문 1건, 매물 상태 RESERVED
+PaymentWebhookServicePostgresTest — 같은 웹훅 8건 동시 수신 → PROCESSED 1건, ALREADY_PROCESSED 7건, 예외 0건, 매물 상태 SOLD
 PaymentWebhookServiceTest — 같은 웹훅 8건 동시 수신 → PROCESSED 1건, ALREADY_PROCESSED 7건, 예외 0건, 매물 상태 SOLD
 ```
+
+`…PostgresTest`는 같은 테스트를 PostgreSQL 16 컨테이너에서 실행한 결과이고, 이름에 `Postgres`가 없는 것은 H2 결과입니다. CI는 PostgreSQL 테스트가 건너뛰어지면 실패하도록 되어 있습니다.
 
 전체 HTML 테스트 리포트는 같은 실행의 `backend-test-report` 아티팩트로 내려받을 수 있습니다.
 
 ### ② 로컬에서 테스트 실행
 
 ```bash
-./gradlew test --tests "*OrderConcurrencyTest"
+./gradlew test --tests "*OrderConcurrency*"
 ```
+
+H2용 `OrderConcurrencyTest`와 PostgreSQL용 `OrderConcurrencyPostgresTest`가 함께 실행됩니다. PostgreSQL 쪽은 [Testcontainers](../src/test/java/com/pocket/market/support/PostgresContainers.java)가 Docker로 `postgres:16-alpine`을 띄워 실행하며, Docker가 없으면 건너뜁니다(H2 테스트는 그대로 실행).
 
 [`OrderConcurrencyTest`](../src/test/java/com/pocket/market/service/OrderConcurrencyTest.java#L79-L126)가 하는 일은 다음과 같습니다.
 
@@ -81,7 +90,9 @@ PaymentWebhookServiceTest — 같은 웹훅 8건 동시 수신 → PROCESSED 1�
 2. 20개 스레드를 `CountDownLatch`로 대기시켰다가 **같은 순간에 출발**시킵니다([L104](../src/test/java/com/pocket/market/service/OrderConcurrencyTest.java#L104)).
 3. 성공 1건, 실패 19건(모두 `LISTING_NOT_AVAILABLE`), 주문 행 1개, 매물 `RESERVED`를 검증합니다([L117–126](../src/test/java/com/pocket/market/service/OrderConcurrencyTest.java#L117-L126)).
 
-테스트는 H2 인메모리 DB에서 실행되므로 실제 DB에 영향을 주지 않습니다.
+잠금 대기 상한은 [`LockTimeoutPostgresTest`](../src/test/java/com/pocket/market/service/LockTimeoutPostgresTest.java)가 검증합니다. 다른 트랜잭션이 매물 행(또는 주문 행)을 `FOR UPDATE`로 쥔 채 놓지 않게 한 뒤 구매 API(또는 입금 웹훅)를 호출하고, 약 3초 뒤 `409 C002`가 오는지와 매물·주문 상태가 그대로인지 확인합니다.
+
+테스트는 H2 인메모리 DB나 테스트가 직접 띄운 컨테이너에서만 실행되므로 실제 DB(Neon)에 영향을 주지 않습니다.
 
 ### ③ API로 재현하기
 
@@ -122,7 +133,7 @@ buyer 2 → HTTP 409   (L002 이미 판매되었거나 거래 진행 중인 매�
 
 ## 6. 같은 원리로 막는 것: 웹훅 중복 반영
 
-PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L46](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L46)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L49–51](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L49-L51)).
+PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L48–49](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L48-L49)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L52–54](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L52-L54)).
 
 - 그래서 같은 웹훅 8건이 동시에 와도 결제 반영은 1번이고, 나머지 7건은 `ALREADY_PROCESSED`로 응답합니다.
 - `orders.pg_transaction_id`의 UNIQUE 제약([`Order` L72–73](../src/main/java/com/pocket/market/domain/order/Order.java#L72-L73))이 마지막 방어선입니다.
@@ -131,5 +142,15 @@ PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService
 
 ## 7. 알려진 한계
 
-- **테스트 DB:** 동시성 테스트는 H2(MySQL 모드)에서 실행됩니다. 운영 DB인 PostgreSQL에서도 `SELECT … FOR UPDATE` 동작은 같지만, Testcontainers로 PostgreSQL 위에서 같은 테스트를 돌리는 것이 다음 단계입니다.
-- **잠금 대기 상한:** 대기 상한은 JPA 힌트(`jakarta.persistence.lock.timeout = 3000`)로만 지정되어 있습니다. PostgreSQL에서는 `lock_timeout` 세션 설정으로 DB 수준 상한을 두는 것을 검토하고 있습니다.
+PostgreSQL에서 확인된 것과 아직 남은 것을 나눠 적습니다.
+
+**PostgreSQL 16에서 검증됨** (Testcontainers, CI에서 매번 실행)
+- 20명 동시 주문 → 1건만 성공 (`OrderConcurrencyPostgresTest`)
+- 같은 웹훅 8건 동시 수신 → 결제 반영 1회, 나머지 `ALREADY_PROCESSED` (`PaymentWebhookServicePostgresTest`, 웹훅 테스트 6개 전부)
+- 잠금 대기 3초 초과 시 구매·웹훅 모두 `409 C002`로 실패하고 데이터는 그대로 (`LockTimeoutPostgresTest`)
+
+**남은 한계**
+- **Neon 고유 동작:** 테스트는 일반 PostgreSQL 16 컨테이너에서 돌기 때문에, Neon의 커넥션 풀러(PgBouncer)나 컴퓨트 일시 중지 같은 환경 차이는 검증하지 않습니다. `lock_timeout`은 트랜잭션 단위(`set_config(…, true)`)로 걸어 트랜잭션 모드 풀러에서도 다른 요청에 새지 않도록 했습니다.
+- **대기 상한 값:** 3초(`app.lock.timeout-ms`)는 트랜잭션이 짧다는 가정에서 정한 값이며 부하 테스트로 정한 값은 아닙니다.
+- **H2·MySQL 프로필:** H2는 JDBC URL의 `LOCK_TIMEOUT`이 상한을 맡고, `mysql` 프로필에는 DB 수준 상한(`innodb_lock_wait_timeout`)을 따로 설정하지 않았습니다.
+- **웹훅 재전송:** `409 C002`를 받은 PG는 웹훅을 다시 보낸다고 가정합니다(멱등 처리이므로 재전송은 안전). 실제 PG의 재시도 정책은 연동 시 확인이 필요합니다.
