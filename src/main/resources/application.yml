@@ -47,6 +47,12 @@ app:
     payment-due-hours: 24
   payment:
     webhook-secret: local-webhook-secret
+    # 가상계좌 발급 PG: fake(기본, 키 불필요) | toss(토스페이먼츠 테스트 모드. README 참고)
+    provider: ${PAYMENT_PROVIDER:fake}
+    toss:
+      base-url: https://api.tosspayments.com
+      # 테스트 시크릿 키(test_sk_...)만 허용. 라이브 키는 기동 시 거부한다. 환경변수 또는 .env.properties 에만 둔다.
+      secret-key: ${TOSS_SECRET_KEY:}
   scheduling:
     enabled: true
   cors:

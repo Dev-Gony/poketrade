@@ -37,7 +37,15 @@ public class PaymentWebhookService {
     @Transactional
     public WebhookResponse handleVirtualAccountDeposit(String secret, VirtualAccountDepositWebhookRequest request) {
         verifySecret(secret);
+        return applyVerifiedDeposit(request);
+    }
 
+    /**
+     * 인증을 마친 입금 통보를 주문에 반영한다. 공유 시크릿 웹훅과 토스페이먼츠 입금 콜백
+     * (TossDepositCallbackService 가 결제 조회로 검증·매핑) 이 같은 멱등 경로를 쓴다.
+     */
+    @Transactional
+    public WebhookResponse applyVerifiedDeposit(VirtualAccountDepositWebhookRequest request) {
         if (request.status() != DepositStatus.DONE) {
             log.info("[Webhook] 처리 대상 아님 orderNo={}, status={}", request.orderNo(), request.status());
             return WebhookResponse.of(Result.IGNORED, request.orderNo());

@@ -1,0 +1,30 @@
+{
+  "mId": "tvivarepublica",
+  "version": "2022-11-16",
+  "paymentKey": "tviva20261021140000AbCd1",
+  "status": "DONE",
+  "lastTransactionKey": "A1B2C3D4E5F60718293A4B5C6D7E8F90",
+  "method": "가상계좌",
+  "orderId": "{{orderId}}",
+  "orderName": "PokeTrade 데모 주문 (테스트 결제)",
+  "requestedAt": "2026-10-21T14:00:00+09:00",
+  "approvedAt": "2026-10-21T14:05:12+09:00",
+  "type": "NORMAL",
+  "virtualAccount": {
+    "accountType": "일반",
+    "accountNumber": "X6105412345678",
+    "bankCode": "88",
+    "customerName": "buyer",
+    "dueDate": "2026-10-22T14:00:00",
+    "refundStatus": "NONE",
+    "expired": false,
+    "settlementStatus": "COMPLETED"
+  },
+  "secret": "ps_sample_secret_0123456789abcdef",
+  "currency": "KRW",
+  "totalAmount": 15000,
+  "balanceAmount": 15000,
+  "suppliedAmount": 13636,
+  "vat": 1364,
+  "taxFreeAmount": 0
+}
