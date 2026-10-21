@@ -134,7 +134,7 @@ buyer 2 → HTTP 409   (L002 이미 판매되었거나 거래 진행 중인 매�
 
 ## 6. 같은 원리로 막는 것: 웹훅 중복 반영
 
-PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L76–78](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L76-L78)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L80–83](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L80-L83)).
+PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L95–97](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L95-L97)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L99–102](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L99-L102)).
 
 - 그래서 같은 웹훅 8건이 동시에 와도 결제 반영은 1번이고, 나머지 7건은 `ALREADY_PROCESSED`로 응답합니다.
 - `orders.pg_transaction_id`의 UNIQUE 제약([`Order` L72–73](../src/main/java/com/pocket/market/domain/order/Order.java#L72-L73))이 마지막 방어선입니다.
@@ -149,7 +149,7 @@ PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService
 | 경로 | 코드 | 이겼을 때 | 졌을 때 (상태가 이미 바뀜) |
 | --- | --- | --- | --- |
 | 구매자 취소 | [`OrderService.cancelOrder` L95–97](../src/main/java/com/pocket/market/service/OrderService.java#L95-L97) → [`Order.cancel`](../src/main/java/com/pocket/market/domain/order/Order.java#L133) | `CANCELLED`, 매물 `ON_SALE` | `409 O002 INVALID_ORDER_STATE` |
-| 입금 웹훅 | [`PaymentWebhookService` L76–78](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L76-L78) | `PAID`, 매물 `SOLD` | **`200 REFUND_REQUIRED`** + `refund_requests` 1건 ([L84–86](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L84-L86)) |
+| 입금 웹훅 | [`PaymentWebhookService` L95–97](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L95-L97) | `PAID`, 매물 `SOLD` | **`200 REFUND_REQUIRED`** + `refund_requests` 1건 ([L103–105](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L103-L105)) |
 | 만료 스케줄러 | [`OrderService.expireOrder` L118–119](../src/main/java/com/pocket/market/service/OrderService.java#L118-L119) | `EXPIRED`, 매물 `ON_SALE` | 아무것도 하지 않음 (`false`) |
 
 입금 웹훅이 지는 경우만 성격이 다릅니다. 취소나 만료는 진 쪽이 그냥 실패하면 되지만, 입금은 **이미 가상계좌에 돈이 들어온 뒤**의 통보입니다. 그래서 예외로 거부(PG 재시도 유발)하지 않고, 환불 대상으로 기록한 뒤 200으로 응답합니다. `refund_requests.pg_transaction_id`가 UNIQUE라 재전송이 와도 환불 건은 1건입니다.

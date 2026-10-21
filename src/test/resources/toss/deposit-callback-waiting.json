@@ -1,0 +1,7 @@
+{
+  "createdAt": "2026-10-21T14:07:00.000000",
+  "secret": "ps_sample_secret_0123456789abcdef",
+  "status": "WAITING_FOR_DEPOSIT",
+  "transactionKey": "0C1D2E3F405162738495A6B7C8D9E0F1",
+  "orderId": "{{orderId}}"
+}

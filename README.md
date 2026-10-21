@@ -26,7 +26,7 @@ PG 입금 통보가 몇 번 다시 와도 **결제는 정확히 한 번만** 반
 <p align="center"><sub>마켓플레이스 · 카드 상세 · 에스크로 결제 (실제 실행 화면)</sub></p>
 
 > [!NOTE]
-> **학습·포트폴리오용 데모 프로젝트입니다.** 화면의 매물·시세·감정 등급·인증·보험·거래량·회사 정보는 모두 예시이며, 실제 거래나 결제는 이루어지지 않습니다. 어떤 은행·PG사·감정사와도 제휴하거나 연동되어 있지 않습니다.
+> **학습·포트폴리오용 데모 프로젝트입니다.** 화면의 매물·시세·감정 등급·인증·보험·거래량·회사 정보는 모두 예시이며, 실제 거래나 결제는 이루어지지 않습니다. 어떤 은행·PG사·감정사와도 제휴 관계가 없습니다. 기본 실행은 외부 결제 시스템과 전혀 연동하지 않으며, 선택 기능인 [토스페이먼츠 테스트 모드](#토스페이먼츠-테스트-모드-선택)도 테스트(샌드박스) 키만 허용해 실제 돈이 오가지 않습니다.
 
 ---
 
@@ -116,7 +116,7 @@ flowchart LR
         OS["OrderService<br/>매물 FOR UPDATE → 선점 → 주문<br/>주문 FOR UPDATE → 취소"]
         WS["PaymentWebhookService<br/>inbox 기록 → 주문 FOR UPDATE → 검증<br/>→ PAID 또는 환불 대상"]
         SCH["OrderExpirationScheduler<br/>1분 주기 기한 만료"]
-        VA["VirtualAccountIssuer<br/>(Fake 구현)"]
+        VA["VirtualAccountIssuer<br/>(Fake 기본 · Toss 테스트 모드 선택)"]
         CORS --> LC & OC
         OC --> OS --> VA
         WC --> WS
@@ -552,10 +552,15 @@ sequenceDiagram
 | `OrderCancelTest` | H2 | 5 | 구매자 취소, 권한·상태 검사, 취소 후 만료 무시, **취소 vs 입금 웹훅 동시 요청 20회** |
 | `LockTimeoutPostgresTest` | PostgreSQL 16 | 2 | 매물·주문 행이 잠긴 동안 구매·입금 웹훅이 약 3초 뒤 `409 C002`로 실패하고 데이터는 그대로 |
 | `CorsConfigTest` | H2 | 4 | 프론트 출처 preflight 허용, 외부 출처·웹훅 경로 거부 |
+| `PaymentProviderSelectionTest` | H2 | 1 | 설정이 없으면 Fake 발급기가 쓰이고 토스 빈은 만들어지지 않음 |
+| `TossPaymentsClientTest` | — | 4 | 토스 API 요청 형식(Basic 인증·필드), 응답·오류 매핑, 라이브 키 거부 |
+| `TossDepositCallbackServiceTest` | — | 4 | 입금 콜백 → 공통 입금 요청 매핑, secret 검증, DONE 외 상태 무시 |
+| `TossProviderIntegrationTest` | H2 | 4 | provider=toss 배선 전체: 발급 → 콜백 엔드포인트 → 멱등 처리, 위조·금액 불일치 거부 |
 
 - `…PostgresTest`는 [Testcontainers](src/test/java/com/pocket/market/support/PostgresContainers.java)가 Docker로 `postgres:16-alpine` 컨테이너를 띄워 실행합니다. **Docker가 없으면 건너뛰고** H2 테스트만 실행되므로 로컬에서도 `./gradlew test`는 그대로 통과합니다.
 - CI(GitHub Actions, Docker 있음)에서는 PostgreSQL 테스트가 건너뛰어지면 빌드를 실패시킵니다.
 - 테스트는 H2 인메모리 DB나 테스트가 직접 띄운 컨테이너에서만 실행되므로 Neon 데이터에 영향을 주지 않습니다.
+- 토스 관련 테스트는 실제 토스 API를 호출하지 않고 [`src/test/resources/toss`](src/test/resources/toss)의 샘플 페이로드(문서 구조를 따라 만든 가짜 값)를 사용합니다.
 
 ---
 
@@ -588,6 +593,33 @@ npm run dev
 
 기본값이 로컬 백엔드(`http://localhost:8080`)를 바라보므로 추가 설정 없이 동작합니다. 백엔드가 꺼져 있거나 주소에 연결할 수 없으면 자동으로 데모 모드로 실행됩니다. 주소를 바꾸려면 [`frontend/.env.example`](frontend/.env.example)을 참고해 `.env.local`을 만드세요.
 
+### 토스페이먼츠 테스트 모드 (선택)
+
+기본값(`PAYMENT_PROVIDER=fake`)은 키 없이 임의 계좌번호를 만들고, 입금은 화면의 **모의 입금** 버튼이 처리합니다. 실제 PG 샌드박스 흐름을 보고 싶을 때만 토스페이먼츠 **테스트 모드**로 바꿀 수 있습니다. 테스트 키로는 실제 돈이 오가지 않으며, 이 프로젝트는 토스페이먼츠와 제휴 관계가 아닙니다.
+
+1. **테스트 키 발급**: [토스페이먼츠 개발자센터](https://developers.tosspayments.com)에 가입한 뒤 **API 키** 메뉴에서 *테스트* 시크릿 키(`test_sk_...`)를 복사합니다. 사업자 등록 없이 테스트 키를 받을 수 있습니다.
+2. **설정**: `.env.properties`(Git에 올리지 않음)나 환경변수에 넣습니다.
+   ```properties
+   PAYMENT_PROVIDER=toss
+   TOSS_SECRET_KEY=test_sk_...
+   ```
+   `test_`로 시작하지 않는 키(라이브 키 `live_sk_...` 등)나 빈 값이면 애플리케이션이 **기동하지 않습니다**. 키는 코드·로그·예시 파일에 남기지 않습니다.
+3. **웹훅 수신 주소 열기**: 토스는 `localhost` 주소를 웹훅으로 등록할 수 없으므로 터널로 백엔드를 외부에 노출합니다.
+   ```bash
+   ngrok http 8080        # 또는 cloudflared tunnel --url http://localhost:8080
+   ```
+4. **웹훅 등록**: 개발자센터 **웹훅** 메뉴에서 `https://<터널 주소>/api/webhooks/payments/toss/deposit-callback`을 **DEPOSIT_CALLBACK**(가상계좌 입금) 이벤트로 등록합니다.
+5. **시연**: 화면에서 구매하면 토스 테스트 가상계좌(번호 앞에 `X`, 실제 입금 불가)가 발급됩니다. 개발자센터 **테스트 결제내역**에서 해당 건의 **입금 처리**를 누르면 토스가 입금 콜백을 보내고, 주문이 `PAID`가 됩니다. (이 모드에서 화면의 *모의 입금* 버튼은 토스를 거치지 않는 공유 시크릿 웹훅을 그대로 호출하므로, 토스 흐름을 보려면 개발자센터에서 입금 처리하세요.)
+
+입금 콜백 처리 방식 ([`TossDepositCallbackService`](src/main/java/com/pocket/market/service/payment/toss/TossDepositCallbackService.java)):
+
+- 콜백 본문(`createdAt`, `secret`, `status`, `transactionKey`, `orderId`)에는 금액이 없으므로, `GET /v1/payments/orders/{orderId}`로 결제를 다시 조회합니다.
+- 콜백의 `secret`이 조회한 결제의 `secret`과 같은지 상수 시간 비교로 확인합니다 (토스 문서가 안내하는 검증 방식).
+- 조회한 결제가 `DONE`이면 `transactionKey`를 거래 ID, `totalAmount`를 입금액으로 삼아 기존 웹훅과 **같은 멱등 경로**(주문 행 `FOR UPDATE` → 금액 검증 → `pgTransactionId` unique)로 반영합니다. 토스가 같은 콜백을 재전송해도 `ALREADY_PROCESSED`(200)로 응답합니다.
+- `DONE`이 아닌 콜백(입금 오류로 `WAITING_FOR_DEPOSIT` 복귀 등)은 무시합니다. 결제 조회는 주문 행 락을 잡기 전에 수행합니다.
+
+참고 문서: [가상계좌 발급 API](https://docs.tosspayments.com/reference#가상계좌-발급-요청) · [웹훅 이벤트(DEPOSIT_CALLBACK)](https://docs.tosspayments.com/reference/using-api/webhook-events) · [웹훅 연결하기](https://docs.tosspayments.com/guides/v2/webhook) · [API 인증](https://docs.tosspayments.com/reference/using-api/authorization) · [은행 코드](https://docs.tosspayments.com/codes/org-codes) · [FAQ(테스트 가상계좌 입금)](https://docs.tosspayments.com/resources/faq)
+
 <details>
 <summary>Windows에서 Gradle이 <code>Unable to establish loopback connection</code>으로 실패할 때</summary>
 
@@ -613,6 +645,7 @@ $env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=C:\github\pocket\.gradle-t
 | `GET` | `/api/orders/{orderId}` | 주문 조회 | |
 | `POST` | `/api/orders/{orderId}/cancel` | 입금 전 주문 취소 (매물 `ON_SALE` 복귀). 결제·만료·취소된 주문이면 `409 O002`, 타인 주문이면 `403 O003` | `X-User-Id` |
 | `POST` | `/api/webhooks/payments/virtual-account` | PG 입금 통보. 결과: `PROCESSED` / `ALREADY_PROCESSED` / `IGNORED` / `REFUND_REQUIRED` | `X-Webhook-Secret` |
+| `POST` | `/api/webhooks/payments/toss/deposit-callback` | 토스페이먼츠 테스트 모드 입금 콜백 (`PAYMENT_PROVIDER=toss`일 때만) | 본문 `secret` 검증 |
 | `GET` | `/api/admin/payments/webhook-inbox?orderNo=&result=` | 웹훅 수신 기록 (읽기 전용, 최신순, 페이지네이션) | |
 | `GET` | `/api/admin/payments/refunds?status=REFUND_REQUIRED` | 환불 대상 목록 (읽기 전용) | |
 
@@ -652,7 +685,7 @@ $env:JAVA_TOOL_OPTIONS = "-Djdk.net.unixdomain.tmpdir=C:\github\pocket\.gradle-t
 | 현재 | 개선 방향 |
 | --- | --- |
 | 인증 없이 `X-User-Id` 헤더로 사용자 구분 | Spring Security + JWT, 주문·웹훅 API 권한 분리 |
-| 가상계좌는 임의 번호 발급(`FakeVirtualAccountIssuer`) | 실제 PG(토스페이먼츠 등) 연동. 인터페이스로 분리해 두어 구현체만 교체하면 됨 |
+| 가상계좌는 기본적으로 임의 번호 발급(`FakeVirtualAccountIssuer`), 선택적으로 토스페이먼츠 테스트 모드 | 테스트 모드만 지원하며 라이브 키는 의도적으로 거부. 가상계좌 발급이 매물 락을 잡은 트랜잭션 안에서 외부 API를 호출하므로, 실서비스라면 발급을 락 밖으로 분리하거나 보상 처리 필요 |
 | 동시성·잠금 테스트는 일반 PostgreSQL 16 컨테이너에서 실행 (Neon 풀러·컴퓨트 일시 중지 같은 환경 차이는 미검증) | Neon 브랜치 DB를 쓰는 별도 스테이징 테스트 |
 | 잠금 대기 상한 3초는 짧은 트랜잭션을 가정한 값 | 부하 테스트(k6 등)로 대기 상한과 커넥션 풀 크기를 함께 조정 |
 | `ddl-auto: update`로 스키마 관리 | Flyway 마이그레이션 + `validate` |

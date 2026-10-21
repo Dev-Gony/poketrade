@@ -54,17 +54,36 @@ public class PaymentWebhookService {
         Long inboxId = webhookInboxService.receive(request);
         try {
             verifySecret(secret);
-            return transactionTemplate.execute(tx -> {
-                WebhookResponse response = process(request);
-                // 처리 결과는 주문 상태와 같은 트랜잭션에서 커밋된다.
-                webhookInboxService.complete(inboxId, WebhookInboxResult.valueOf(response.result().name()));
-                return response;
-            });
+            return processRecorded(inboxId, request);
         } catch (RuntimeException e) {
             // 처리 트랜잭션은 이미 롤백됐다. 거부 사유만 별도 트랜잭션으로 남긴다.
             recordRejection(inboxId, e);
             throw e;
         }
+    }
+
+    /**
+     * 인증을 마친 입금 통보를 주문에 반영한다. 공유 시크릿 웹훅과 토스페이먼츠 입금 콜백
+     * (TossDepositCallbackService 가 결제 조회로 검증·매핑) 이 같은 inbox 기록·멱등 경로를 쓴다.
+     * handleVirtualAccountDeposit 과 같은 이유로 트랜잭션을 열지 않는다.
+     */
+    public WebhookResponse applyVerifiedDeposit(VirtualAccountDepositWebhookRequest request) {
+        Long inboxId = webhookInboxService.receive(request);
+        try {
+            return processRecorded(inboxId, request);
+        } catch (RuntimeException e) {
+            recordRejection(inboxId, e);
+            throw e;
+        }
+    }
+
+    private WebhookResponse processRecorded(Long inboxId, VirtualAccountDepositWebhookRequest request) {
+        return transactionTemplate.execute(tx -> {
+            WebhookResponse response = process(request);
+            // 처리 결과는 주문 상태와 같은 트랜잭션에서 커밋된다.
+            webhookInboxService.complete(inboxId, WebhookInboxResult.valueOf(response.result().name()));
+            return response;
+        });
     }
 
     private WebhookResponse process(VirtualAccountDepositWebhookRequest request) {

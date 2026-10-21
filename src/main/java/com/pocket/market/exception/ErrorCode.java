@@ -31,7 +31,8 @@ public enum ErrorCode {
 
     // Payment
     PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "P001", "결제 금액이 주문 금액과 일치하지 않습니다."),
-    INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "P003", "웹훅 인증에 실패했습니다.");
+    INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "P003", "웹훅 인증에 실패했습니다."),
+    PAYMENT_PROVIDER_ERROR(HttpStatus.BAD_GATEWAY, "P004", "결제대행사(PG) 연동 중 오류가 발생했습니다.");
 
     private final HttpStatus status;
     private final String code;
