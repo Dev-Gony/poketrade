@@ -85,6 +85,26 @@ public class OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
     }
 
+    /**
+     * 구매자 취소. 입금 전(PENDING_PAYMENT)인 주문만 취소할 수 있고, 선점한 매물은 다시 판매중으로 돌아간다.
+     * 입금 웹훅·만료 스케줄러와 같은 주문 행 락을 잡으므로 셋 중 먼저 락을 얻은 쪽만 상태를 바꾼다.
+     * 취소가 이기면 뒤이은 입금은 환불 대상(REFUND_REQUIRED)으로, 입금이 이기면 취소는 INVALID_ORDER_STATE 로 끝난다.
+     */
+    @Transactional
+    public OrderResponse cancelOrder(Long buyerId, Long orderId) {
+        lockTimeout.apply();
+        Order order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.isOrderedBy(buyerId)) {
+            throw new BusinessException(ErrorCode.ORDER_ACCESS_DENIED);
+        }
+        order.cancel(LocalDateTime.now());
+
+        log.info("[Order] 구매자 취소 orderNo={}, buyerId={}", order.getOrderNo(), buyerId);
+        return OrderResponse.from(order);
+    }
+
     public List<Long> findOverdueOrderIds(LocalDateTime now) {
         return orderRepository.findIdsByStatusAndPaymentDueAtBefore(OrderStatus.PENDING_PAYMENT, now);
     }

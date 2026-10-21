@@ -23,7 +23,8 @@ public class WebhookController {
     private final PaymentWebhookService paymentWebhookService;
 
     @Operation(summary = "가상계좌 입금 통보",
-            description = "금액 검증 후 주문을 PAID, 매물을 SOLD 로 전이한다. 동일 transactionId 재수신 시 ALREADY_PROCESSED(200).")
+            description = "금액 검증 후 주문을 PAID, 매물을 SOLD 로 전이한다. 동일 transactionId 재수신 시 ALREADY_PROCESSED(200). "
+                    + "만료·취소·다른 거래로 결제된 주문에 입금되면 환불 대상으로 기록하고 REFUND_REQUIRED(200). 모든 수신은 webhook_inbox 에 남는다.")
     @PostMapping("/virtual-account")
     public WebhookResponse handleVirtualAccountDeposit(
             @Parameter(description = "PG 웹훅 공유 시크릿", example = "local-webhook-secret")

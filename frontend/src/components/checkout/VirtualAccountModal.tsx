@@ -4,17 +4,19 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatMoney, useCurrency } from "@/currency/CurrencyProvider";
 import { formatDateTime } from "@/i18n/format";
+import type { TranslationKey } from "@/i18n/dictionaries";
 import { useTranslation } from "@/i18n/I18nProvider";
-import { parseServerDateTime, type OrderResponse } from "@/lib/api/backend";
+import { BACKEND_ERROR_CODES, BackendError, browserApi, parseServerDateTime, type OrderResponse } from "@/lib/api/backend";
 import type { CardData } from "@/lib/cards";
 import { bankLabelKey, formatAccountNumber } from "@/lib/checkout";
-import { confirmDemoDeposit } from "@/lib/demoPayment";
+import { cancelDemoOrder, confirmDemoDeposit } from "@/lib/demoPayment";
 import { routes } from "@/lib/navigation";
 
 /** 입금 확인 로딩을 사람이 인지할 수 있도록 보장하는 최소 시간 */
 const MIN_CONFIRM_MS = 1200;
 
-type Phase = "awaiting" | "confirming" | "paid";
+/** confirming: 모의 입금 웹훅 처리 중, cancelling: 주문 취소 API 호출 중 */
+type Phase = "awaiting" | "confirming" | "cancelling" | "paid";
 
 type VirtualAccountModalProps = {
   /** 백엔드 주문(가상계좌) 응답 */
@@ -22,35 +24,39 @@ type VirtualAccountModalProps = {
   card: CardData;
   onClose: () => void;
   onPaid: (order: OrderResponse) => void;
-  /** 백엔드 미연결 시 입금 웹훅을 브라우저 안에서 시뮬레이션 */
+  /** 구매자 취소 완료 (주문 CANCELLED, 매물 ON_SALE 복귀) */
+  onCancelled: (order: OrderResponse) => void;
+  /** 백엔드 미연결 시 입금 웹훅·취소를 브라우저 안에서 시뮬레이션 */
   demoMode?: boolean;
 };
 
 const toIso = (value: string) => parseServerDateTime(value).toISOString();
 
-export default function VirtualAccountModal({ order, card, onClose, onPaid, demoMode = false }: VirtualAccountModalProps) {
+export default function VirtualAccountModal({ order, card, onClose, onPaid, onCancelled, demoMode = false }: VirtualAccountModalProps) {
   const { t, pick, intlLocale } = useTranslation();
   const { currency, format } = useCurrency();
   const [phase, setPhase] = useState<Phase>(order.status === "PAID" ? "paid" : "awaiting");
   const [paidOrder, setPaidOrder] = useState<OrderResponse | null>(order.status === "PAID" ? order : null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<TranslationKey | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [copied, setCopied] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const account = order.virtualAccount;
   const accountNumber = account.accountNumber ?? "";
+  const busy = phase === "confirming" || phase === "cancelling";
 
-  // 모달이 열리면 포커스를 옮기고, 확인 중이 아닐 때만 Esc 로 닫는다.
+  // 모달이 열리면 포커스를 옮기고, 처리 중이 아닐 때만 Esc 로 닫는다.
   useEffect(() => {
     dialogRef.current?.focus();
   }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && phase !== "confirming") onClose();
+      if (e.key === "Escape" && !busy) onClose();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [phase, onClose]);
+  }, [busy, onClose]);
 
   const copyAccountNumber = async () => {
     try {
@@ -68,7 +74,8 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
    */
   const simulateDeposit = async () => {
     setPhase("confirming");
-    setError(false);
+    setError(null);
+    setConfirmCancel(false);
     try {
       const deposit = async (): Promise<OrderResponse> => {
         if (demoMode) return confirmDemoDeposit(order);
@@ -86,7 +93,40 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
       setPhase("paid");
       onPaid(updated);
     } catch {
-      setError(true);
+      setError("va.error");
+      setPhase("awaiting");
+    }
+  };
+
+  /**
+   * 구매자 취소: 백엔드가 주문 행을 잠근 뒤 PENDING_PAYMENT 일 때만 CANCELLED 로 바꾸고 매물을 ON_SALE 로 돌린다.
+   * 입금 웹훅이 먼저 반영됐다면 O002(INVALID_ORDER_STATE)로 거부되므로, 최신 주문을 다시 읽어 결제 완료 화면을 보여 준다.
+   */
+  const cancelOrder = async () => {
+    setPhase("cancelling");
+    setError(null);
+    try {
+      const cancelled = demoMode
+        ? await cancelDemoOrder(order)
+        : await browserApi<OrderResponse>(`/orders/${order.orderId}/cancel`, {
+            method: "POST",
+            headers: { "X-User-Id": String(order.buyerId) },
+          });
+      onCancelled(cancelled);
+    } catch (e) {
+      if (e instanceof BackendError && e.code === BACKEND_ERROR_CODES.INVALID_ORDER_STATE) {
+        const latest = await browserApi<OrderResponse>(`/orders/${order.orderId}`).catch(() => null);
+        if (latest?.status === "PAID") {
+          setPaidOrder(latest);
+          setPhase("paid");
+          onPaid(latest);
+          return;
+        }
+        setError("va.cancelNotAllowed");
+      } else {
+        setError("va.cancelError");
+      }
+      setConfirmCancel(false);
       setPhase("awaiting");
     }
   };
@@ -95,7 +135,7 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div aria-hidden className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={phase === "confirming" ? undefined : onClose} />
+      <div aria-hidden className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={busy ? undefined : onClose} />
 
       <div
         ref={dialogRef}
@@ -122,7 +162,7 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
               <button
                 aria-label={t("va.close")}
                 className="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container disabled:opacity-40"
-                disabled={phase === "confirming"}
+                disabled={busy}
                 onClick={onClose}
                 type="button"
               >
@@ -181,7 +221,7 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
               {error && (
                 <p className="flex items-center gap-1 font-body-sm text-body-sm text-error" role="alert">
                   <span className="material-symbols-outlined text-[16px]">error</span>
-                  {t("va.error")}
+                  {t(error)}
                 </p>
               )}
             </div>
@@ -190,7 +230,7 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
             <div className="mt-4 px-6 py-5 border-t border-dashed border-outline-variant/50 bg-surface-container-lowest/60">
               <button
                 className="w-full py-3.5 rounded-xl bg-tertiary-container text-on-tertiary-container font-headline-sm text-body-lg font-bold flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.99] transition-all disabled:cursor-wait disabled:opacity-80"
-                disabled={phase === "confirming"}
+                disabled={busy}
                 onClick={simulateDeposit}
                 type="button"
               >
@@ -200,6 +240,48 @@ export default function VirtualAccountModal({ order, card, onClose, onPaid, demo
                 {phase === "confirming" ? t("va.confirming") : t("va.simulate")}
               </button>
               <p className="mt-2 text-center font-body-sm text-[11px] text-outline">{t("va.simulateHint")}</p>
+
+              {/* 구매자 취소 (입금 전에만 가능) */}
+              {confirmCancel || phase === "cancelling" ? (
+                <div className="mt-4 rounded-xl bg-error-container/20 ring-1 ring-error/30 p-3.5 space-y-2.5" role="group" aria-labelledby="va-cancel-title">
+                  <p className="font-body-sm text-body-sm font-semibold text-on-surface" id="va-cancel-title">
+                    {t("va.cancelConfirm")}
+                  </p>
+                  <p className="font-body-sm text-[11px] text-outline">{t("va.cancelHint")}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      className="py-2.5 rounded-lg bg-surface-container-high text-on-surface font-body-sm text-body-sm font-semibold hover:bg-surface-container-highest transition-colors disabled:opacity-50"
+                      disabled={busy}
+                      onClick={() => setConfirmCancel(false)}
+                      type="button"
+                    >
+                      {t("va.cancelKeep")}
+                    </button>
+                    <button
+                      className="py-2.5 rounded-lg bg-error text-on-error font-body-sm text-body-sm font-bold flex items-center justify-center gap-1.5 hover:brightness-110 transition-all disabled:cursor-wait disabled:opacity-80"
+                      disabled={busy}
+                      onClick={cancelOrder}
+                      type="button"
+                    >
+                      {phase === "cancelling" && <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>}
+                      {phase === "cancelling" ? t("va.cancelling") : t("va.cancelYes")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="mt-3 w-full flex items-center justify-center gap-1 font-body-sm text-body-sm text-outline hover:text-error transition-colors disabled:opacity-40"
+                  disabled={busy}
+                  onClick={() => {
+                    setError(null);
+                    setConfirmCancel(true);
+                  }}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">cancel</span>
+                  {t("va.cancel")}
+                </button>
+              )}
             </div>
           </>
         )}

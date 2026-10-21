@@ -74,6 +74,8 @@ public class Order extends BaseTimeEntity {
 
     private LocalDateTime paidAt;
 
+    private LocalDateTime cancelledAt;
+
     private Order(User buyer, Listing listing, LocalDateTime paymentDueAt) {
         this.orderNo = generateOrderNo();
         this.buyer = buyer;
@@ -95,6 +97,10 @@ public class Order extends BaseTimeEntity {
         this.virtualAccountBank = bank;
         this.virtualAccountNumber = accountNumber;
         this.depositorName = depositorName;
+    }
+
+    public boolean isOrderedBy(Long userId) {
+        return buyer.getId().equals(userId);
     }
 
     public boolean isPaidWith(String transactionId) {
@@ -120,6 +126,16 @@ public class Order extends BaseTimeEntity {
             throw new BusinessException(ErrorCode.INVALID_ORDER_STATE);
         }
         this.status = OrderStatus.EXPIRED;
+        this.listing.release();
+    }
+
+    /** 구매자 취소. 반드시 비관적 락으로 조회한 주문에서 호출해야 입금 웹훅·만료 스케줄러와 경합하지 않는다. */
+    public void cancel(LocalDateTime cancelledAt) {
+        if (status != OrderStatus.PENDING_PAYMENT) {
+            throw new BusinessException(ErrorCode.INVALID_ORDER_STATE);
+        }
+        this.status = OrderStatus.CANCELLED;
+        this.cancelledAt = cancelledAt;
         this.listing.release();
     }
 }
