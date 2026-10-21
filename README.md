@@ -611,6 +611,15 @@ npm run dev
 4. **웹훅 등록**: 개발자센터 **웹훅** 메뉴에서 `https://<터널 주소>/api/webhooks/payments/toss/deposit-callback`을 **DEPOSIT_CALLBACK**(가상계좌 입금) 이벤트로 등록합니다.
 5. **시연**: 화면에서 구매하면 토스 테스트 가상계좌(번호 앞에 `X`, 실제 입금 불가)가 발급됩니다. 개발자센터 **테스트 결제내역**에서 해당 건의 **입금 처리**를 누르면 토스가 입금 콜백을 보내고, 주문이 `PAID`가 됩니다. (이 모드에서 화면의 *모의 입금* 버튼은 토스를 거치지 않는 공유 시크릿 웹훅을 그대로 호출하므로, 토스 흐름을 보려면 개발자센터에서 입금 처리하세요.)
 
+**실제 샌드박스 확인 기록 (2026-10-21)**: 테스트 키로 백엔드(H2 프로필)를 띄우고 cloudflared 임시 터널로 웹훅 주소를 연 뒤, 아래 흐름을 끝까지 확인했습니다. 값은 모두 테스트 모드 값입니다.
+
+| 시각 | 단계 | 결과 |
+| --- | --- | --- |
+| 16:10:38 | `POST /api/orders` → 토스 `POST /v1/virtual-accounts` | `201`, 테스트 가상계좌 발급, 토스 상태 `WAITING_FOR_DEPOSIT` (개발자센터 API 로그에도 `200`으로 기록) |
+| 16:14:42 | 개발자센터 **테스트 결제내역 → 입금 처리** | 토스가 `DEPOSIT_CALLBACK` 전송 |
+| 16:14:45 | 터널 → `/api/webhooks/payments/toss/deposit-callback` | 결제 재조회·`secret` 검증 후 반영. 웹훅 inbox 1건 `PROCESSED` (수신→처리 16ms) |
+| 결과 | 주문 / 매물 | 주문 `PENDING_PAYMENT → PAID` (거래 ID `txrd_a01m5emzwagp1j6prrrbw5v58t5`), 매물 `RESERVED → SOLD` |
+
 입금 콜백 처리 방식 ([`TossDepositCallbackService`](src/main/java/com/pocket/market/service/payment/toss/TossDepositCallbackService.java)):
 
 - 콜백 본문(`createdAt`, `secret`, `status`, `transactionKey`, `orderId`)에는 금액이 없으므로, `GET /v1/payments/orders/{orderId}`로 결제를 다시 조회합니다.
