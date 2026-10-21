@@ -27,10 +27,10 @@ public enum ErrorCode {
     // Order
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "O001", "주문을 찾을 수 없습니다."),
     INVALID_ORDER_STATE(HttpStatus.CONFLICT, "O002", "주문 상태가 올바르지 않습니다."),
+    ORDER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "O003", "본인 주문만 취소할 수 있습니다."),
 
     // Payment
     PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "P001", "결제 금액이 주문 금액과 일치하지 않습니다."),
-    DUPLICATE_TRANSACTION(HttpStatus.CONFLICT, "P002", "이미 다른 거래로 결제 완료된 주문입니다."),
     INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "P003", "웹훅 인증에 실패했습니다.");
 
     private final HttpStatus status;

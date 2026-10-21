@@ -47,8 +47,14 @@ export async function createDemoOrder({ listingId, amount, buyerId, bank, deposi
     paymentDueAt: toServerDateTime(new Date(now.getTime() + PAYMENT_WINDOW_MS)),
     paidAt: null,
     pgTransactionId: null,
+    cancelledAt: null,
     createdAt: toServerDateTime(now),
   };
+}
+
+/** 구매자 취소 시뮬레이션 (백엔드에서는 주문 행 락 아래 CANCELLED 전이 + 매물 ON_SALE 복귀) */
+export async function cancelDemoOrder(order: OrderResponse): Promise<OrderResponse> {
+  return { ...order, status: "CANCELLED", cancelledAt: toServerDateTime(new Date()) };
 }
 
 /** 입금 완료 웹훅 수신 시뮬레이션 */

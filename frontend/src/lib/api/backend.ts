@@ -3,7 +3,7 @@
 // - 브라우저: NEXT_PUBLIC_BACKEND_URL 로 직접 호출. 백엔드 WebConfig 의 CORS 설정(/api/listings/**, /api/orders/**)이 허용한다.
 
 export type ListingStatus = "ON_SALE" | "RESERVED" | "SOLD";
-export type OrderStatus = "PENDING_PAYMENT" | "PAID" | "EXPIRED";
+export type OrderStatus = "PENDING_PAYMENT" | "PAID" | "EXPIRED" | "CANCELLED";
 export type BackendBankCode = "KB" | "SHINHAN" | "TOSS" | "WOORI" | "HANA";
 export type BackendCardRarity = "C" | "U" | "R" | "RR" | "SR" | "SAR" | "UR" | "PROMO";
 export type BackendEnergyType =
@@ -76,12 +76,15 @@ export type OrderResponse = {
   paymentDueAt: string;
   paidAt: string | null;
   pgTransactionId: string | null;
+  /** 구매자 취소 시각 (POST /api/orders/{id}/cancel) */
+  cancelledAt: string | null;
   createdAt: string;
 };
 
 /** POST /api/webhooks/payments/virtual-account */
 export type WebhookResponse = {
-  result: "PROCESSED" | "ALREADY_PROCESSED" | "IGNORED";
+  /** REFUND_REQUIRED: 만료·취소·이미 결제된 주문에 입금되어 백엔드가 환불 대상으로 기록함 */
+  result: "PROCESSED" | "ALREADY_PROCESSED" | "IGNORED" | "REFUND_REQUIRED";
   orderNo: string;
 };
 
@@ -98,6 +101,8 @@ export const BACKEND_ERROR_CODES = {
   SELF_PURCHASE_NOT_ALLOWED: "L004",
   USER_NOT_FOUND: "U001",
   LOCK_ACQUISITION_FAILED: "C002",
+  INVALID_ORDER_STATE: "O002",
+  ORDER_ACCESS_DENIED: "O003",
 } as const;
 
 export class BackendError extends Error {

@@ -23,7 +23,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * 판매자가 등록한 단일 카드 매물. 재고는 1개(단품)이며 상태 전이로 재고를 표현한다.
- * ON_SALE -> RESERVED(주문 생성) -> SOLD(입금 완료) / RESERVED -> ON_SALE(주문 만료)
+ * ON_SALE -> RESERVED(주문 생성) -> SOLD(입금 완료) / RESERVED -> ON_SALE(주문 만료·구매자 취소)
  */
 @Getter
 @Entity

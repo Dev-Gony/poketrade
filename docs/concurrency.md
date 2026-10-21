@@ -64,7 +64,8 @@ sequenceDiagram
 
 ```
 OrderConcurrencyTest — 20명 동시 주문 → 성공 1건, 실패 19건 (LISTING_NOT_AVAILABLE 19건), 생성된 주문 1건, 매물 상태 RESERVED
-PaymentWebhookServiceTest — 같은 웹훅 8건 동시 수신 → PROCESSED 1건, ALREADY_PROCESSED 7건, 예외 0건, 매물 상태 SOLD
+PaymentWebhookServiceTest — 같은 웹훅 8건 동시 수신 → PROCESSED 1건, ALREADY_PROCESSED 7건, 예외 0건, 매물 상태 SOLD, inbox 기록 8건
+OrderCancelTest — 취소 vs 입금 웹훅 동시 요청 20회 → 취소 승 10회(입금은 환불 대상 기록), 입금 승 10회(취소 거부), 불일치 0회
 ```
 
 전체 HTML 테스트 리포트는 같은 실행의 `backend-test-report` 아티팩트로 내려받을 수 있습니다.
@@ -122,14 +123,38 @@ buyer 2 → HTTP 409   (L002 이미 판매되었거나 거래 진행 중인 매�
 
 ## 6. 같은 원리로 막는 것: 웹훅 중복 반영
 
-PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L46](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L46)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L49–51](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L49-L51)).
+PG 입금 웹훅도 같은 방식으로 처리합니다. [`PaymentWebhookService` L74](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L74)에서 **주문 행을 `FOR UPDATE`로 잠근 뒤** 이미 같은 거래로 결제됐는지 확인합니다([L77–79](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L77-L79)).
 
 - 그래서 같은 웹훅 8건이 동시에 와도 결제 반영은 1번이고, 나머지 7건은 `ALREADY_PROCESSED`로 응답합니다.
 - `orders.pg_transaction_id`의 UNIQUE 제약([`Order` L72–73](../src/main/java/com/pocket/market/domain/order/Order.java#L72-L73))이 마지막 방어선입니다.
+- 8건 모두 처리 전에 `webhook_inbox`에 **별도 트랜잭션으로** 기록되므로, 응답과 같은 수(PROCESSED 1 + ALREADY_PROCESSED 7)의 수신 기록이 남습니다.
 
 자세한 내용은 [README의 웹훅 멱등성 절](../README.md#5-핵심-문제-해결--가상계좌-웹훅-멱등성-보장)을 참고하세요.
 
-## 7. 알려진 한계
+## 7. 같은 주문 행을 노리는 세 경로: 취소 · 입금 · 만료
+
+입금 전 주문은 세 곳에서 상태가 바뀔 수 있습니다. 셋 다 **같은 주문 행을 `FOR UPDATE`로 먼저 잠그고**, 잠금을 얻은 뒤 상태가 여전히 `PENDING_PAYMENT`인지 확인합니다.
+
+| 경로 | 코드 | 이겼을 때 | 졌을 때 (상태가 이미 바뀜) |
+| --- | --- | --- | --- |
+| 구매자 취소 | [`OrderService.cancelOrder` L90–91](../src/main/java/com/pocket/market/service/OrderService.java#L90-L91) → [`Order.cancel`](../src/main/java/com/pocket/market/domain/order/Order.java#L133) | `CANCELLED`, 매물 `ON_SALE` | `409 O002 INVALID_ORDER_STATE` |
+| 입금 웹훅 | [`PaymentWebhookService` L74](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L74) | `PAID`, 매물 `SOLD` | **`200 REFUND_REQUIRED`** + `refund_requests` 1건 ([L82](../src/main/java/com/pocket/market/service/PaymentWebhookService.java#L82)) |
+| 만료 스케줄러 | [`OrderService.expireOrder` L113](../src/main/java/com/pocket/market/service/OrderService.java#L113) | `EXPIRED`, 매물 `ON_SALE` | 아무것도 하지 않음 (`false`) |
+
+입금 웹훅이 지는 경우만 성격이 다릅니다. 취소나 만료는 진 쪽이 그냥 실패하면 되지만, 입금은 **이미 가상계좌에 돈이 들어온 뒤**의 통보입니다. 그래서 예외로 거부(PG 재시도 유발)하지 않고, 환불 대상으로 기록한 뒤 200으로 응답합니다. `refund_requests.pg_transaction_id`가 UNIQUE라 재전송이 와도 환불 건은 1건입니다.
+
+```bash
+./gradlew test --tests "*OrderCancelTest"
+```
+
+[`OrderCancelTest.cancelVersusDepositRace`](../src/test/java/com/pocket/market/service/OrderCancelTest.java)는 새 주문을 20번 만들어 매번 취소와 입금 웹훅을 같은 순간에 출발시키고, 어느 쪽이 이겼든 아래 두 결과 중 하나만 나오는지 확인합니다.
+
+- 취소 승: 주문 `CANCELLED` · 매물 `ON_SALE` · 웹훅 `REFUND_REQUIRED` · 환불 건 1(`ORDER_CANCELLED`) · inbox `REFUND_REQUIRED`
+- 입금 승: 주문 `PAID` · 매물 `SOLD` · 취소 `INVALID_ORDER_STATE` · 환불 건 0 · inbox `PROCESSED`
+
+웹훅은 잠금 전에 inbox 기록 트랜잭션을 먼저 커밋하므로, 그대로 두면 취소가 거의 매번 먼저 잠금을 얻습니다. 테스트는 홀수 회차에 취소를 30ms 늦게 출발시켜 **두 경로를 모두** 검증합니다.
+
+## 8. 알려진 한계
 
 - **테스트 DB:** 동시성 테스트는 H2(MySQL 모드)에서 실행됩니다. 운영 DB인 PostgreSQL에서도 `SELECT … FOR UPDATE` 동작은 같지만, Testcontainers로 PostgreSQL 위에서 같은 테스트를 돌리는 것이 다음 단계입니다.
 - **잠금 대기 상한:** 대기 상한은 JPA 힌트(`jakarta.persistence.lock.timeout = 3000`)로만 지정되어 있습니다. PostgreSQL에서는 `lock_timeout` 세션 설정으로 DB 수준 상한을 두는 것을 검토하고 있습니다.

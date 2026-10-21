@@ -66,6 +66,8 @@ export default function PaymentPanel({ listing, data, cardHref, demoMode = false
   const [receiptNumber, setReceiptNumber] = useState<string>(data.shipping.phone);
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [error, setError] = useState<PanelError>(null);
+  /** 주문 취소 직후 안내 (매물이 다시 판매중이라 새로 주문할 수 있다) */
+  const [cancelledNotice, setCancelledNotice] = useState(false);
   const [status, setStatus] = useState<PaymentStatus>("idle");
   const [order, setOrder] = useState<OrderResponse | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -94,6 +96,7 @@ export default function PaymentPanel({ listing, data, cardHref, demoMode = false
     }
 
     setError(null);
+    setCancelledNotice(false);
     setStatus("issuing");
     try {
       // 즉시 구매: 백엔드가 매물을 비관적 락으로 선점(RESERVED)하고 가상계좌를 발급한다.
@@ -320,6 +323,12 @@ export default function PaymentPanel({ listing, data, cardHref, demoMode = false
             {t(error.key)}
           </p>
         )}
+        {cancelledNotice && !error && (
+          <p className="flex items-center gap-1 font-body-sm text-body-sm text-secondary" role="status">
+            <span className="material-symbols-outlined text-[16px]">undo</span>
+            {t("pay.cancelled")}
+          </p>
+        )}
       </div>
 
       {/* Primary CTA & Cancel Action */}
@@ -379,6 +388,13 @@ export default function PaymentPanel({ listing, data, cardHref, demoMode = false
         <VirtualAccountModal
           card={card}
           demoMode={demoMode}
+          onCancelled={() => {
+            // 주문이 취소되면 매물이 다시 판매중(ON_SALE)이 되므로 결제 패널을 처음 상태로 되돌린다.
+            setModalOpen(false);
+            setOrder(null);
+            setStatus("idle");
+            setCancelledNotice(true);
+          }}
           onClose={() => setModalOpen(false)}
           onPaid={(paid) => {
             // 여기서 router.refresh() 를 하면 결제 페이지가 "판매 완료" 안내로 다시 그려져 영수증이 사라진다.

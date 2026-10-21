@@ -17,6 +17,7 @@ public record OrderResponse(
         LocalDateTime paymentDueAt,
         LocalDateTime paidAt,
         String pgTransactionId,
+        LocalDateTime cancelledAt,
         LocalDateTime createdAt
 ) {
 
@@ -41,6 +42,7 @@ public record OrderResponse(
                 order.getPaymentDueAt(),
                 order.getPaidAt(),
                 order.getPgTransactionId(),
+                order.getCancelledAt(),
                 order.getCreatedAt()
         );
     }

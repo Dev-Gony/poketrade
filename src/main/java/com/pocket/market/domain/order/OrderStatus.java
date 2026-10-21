@@ -6,5 +6,7 @@ public enum OrderStatus {
     /** 입금 확인 완료 */
     PAID,
     /** 입금 기한 만료로 취소 */
-    EXPIRED
+    EXPIRED,
+    /** 입금 전 구매자가 직접 취소 */
+    CANCELLED
 }

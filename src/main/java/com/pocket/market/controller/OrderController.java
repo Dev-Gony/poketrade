@@ -37,6 +37,16 @@ public class OrderController {
         return orderService.placeOrder(buyerId, request.listingId(), request.bank(), request.depositorName());
     }
 
+    @Operation(summary = "주문 취소",
+            description = "입금 전(PENDING_PAYMENT) 주문을 구매자가 취소하고 매물을 다시 판매중으로 돌린다. 이미 결제·만료·취소된 주문이면 409.")
+    @PostMapping("/{orderId}/cancel")
+    public OrderResponse cancelOrder(
+            @Parameter(description = "구매자 ID (인증 연동 전 임시 헤더)", example = "2")
+            @RequestHeader("X-User-Id") Long buyerId,
+            @PathVariable Long orderId) {
+        return orderService.cancelOrder(buyerId, orderId);
+    }
+
     @Operation(summary = "주문 조회")
     @GetMapping("/{orderId}")
     public OrderResponse getOrder(@PathVariable Long orderId) {
