@@ -1,0 +1,27 @@
+# Render Blueprint: 백엔드 API 를 Docker 로 배포한다. (프론트엔드는 Vercel)
+# 비밀 값(sync: false)은 Render 대시보드에서 직접 입력한다. Git 에는 넣지 않는다.
+services:
+  - type: web
+    name: poketrade-api
+    runtime: docker
+    plan: free
+    # Neon DB(ap-southeast-1)와 같은 지역
+    region: singapore
+    healthCheckPath: /api/listings?size=1
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        # local: DB 가 비어 있을 때만 데모 매물 8건을 넣는다
+        value: local
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: LOGGING_LEVEL_ORG_HIBERNATE_SQL
+        value: info

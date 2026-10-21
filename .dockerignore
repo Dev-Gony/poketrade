@@ -1,0 +1,11 @@
+.git
+.github
+.gradle
+.gradle-tmp
+build
+bin
+frontend
+docs
+*.md
+.env.properties
+.env

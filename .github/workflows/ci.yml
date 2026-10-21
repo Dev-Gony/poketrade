@@ -70,3 +70,11 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  docker:
+    name: Backend Docker image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      # Render 배포에 쓰는 Dockerfile 이 빌드되는지 확인한다 (푸시하지 않음).
+      - run: docker build -t poketrade-api:ci .

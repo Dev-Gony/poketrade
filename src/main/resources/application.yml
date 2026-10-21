@@ -1,3 +1,7 @@
+# 배포 환경(Render 등)은 PORT 환경변수로 포트를 넘긴다.
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
     name: pocket-market
@@ -46,7 +50,8 @@ app:
   order:
     payment-due-hours: 24
   payment:
-    webhook-secret: local-webhook-secret
+    # 배포 시에는 반드시 WEBHOOK_SECRET 으로 바꾼다. 프론트엔드 BACKEND_WEBHOOK_SECRET 과 같아야 한다.
+    webhook-secret: ${WEBHOOK_SECRET:local-webhook-secret}
     # 가상계좌 발급 PG: fake(기본, 키 불필요) | toss(토스페이먼츠 테스트 모드. README 참고)
     provider: ${PAYMENT_PROVIDER:fake}
     toss:
@@ -60,7 +65,8 @@ app:
     timeout-ms: 3000
   cors:
     # 브라우저(Next.js)에서 매물·주문 API 를 직접 호출할 수 있는 출처 패턴 (콤마 구분)
-    allowed-origin-patterns: http://localhost:[*],http://127.0.0.1:[*]
+    # 배포 시 CORS_ALLOWED_ORIGINS 에 프론트엔드 주소(예: https://poketrade.vercel.app)를 넣는다.
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGINS:http://localhost:[*],http://127.0.0.1:[*]}
 
 ---
 # 오프라인 개발용 인메모리 H2: --spring.profiles.active=local,h2
