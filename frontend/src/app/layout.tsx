@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import DemoNotice from "@/components/DemoNotice";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/navbar/Navbar";
 import Providers from "./providers";
@@ -6,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "PokeTrade Vault",
-  description: "Korea's premier verified Pokémon TCG exchange & vault",
+  description: "Learning/portfolio demo of a graded Pokémon card escrow marketplace (Spring Boot + Next.js). All market data is sample data.",
 };
 
 // 페인트 전에 저장된 테마를 적용해 라이트 모드 사용자의 다크 깜빡임을 막는다. (키: ThemeToggle 의 THEME_STORAGE_KEY)
@@ -35,7 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-surface font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen">
         <Providers>
           <Navbar />
-          <main className="w-full pt-28 bg-surface min-h-[calc(100vh-28rem)]">{children}</main>
+          <main className="w-full pt-28 bg-surface min-h-[calc(100vh-28rem)]">
+            <DemoNotice />
+            {children}
+          </main>
           <Footer />
         </Providers>
       </body>

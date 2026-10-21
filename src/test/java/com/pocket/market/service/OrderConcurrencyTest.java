@@ -105,6 +105,15 @@ class OrderConcurrencyTest {
         assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
         executor.shutdown();
 
+        // CI 요약(.github/scripts/junit_summary.py)이 이 줄을 읽어 결과 표에 보여 준다.
+        long notAvailable = failures.stream()
+                .filter(t -> t instanceof BusinessException be && be.getErrorCode() == ErrorCode.LISTING_NOT_AVAILABLE)
+                .count();
+        System.out.printf("[RESULT] %d명 동시 주문 → 성공 %d건, 실패 %d건 (LISTING_NOT_AVAILABLE %d건), 생성된 주문 %d건, 매물 상태 %s%n",
+                THREAD_COUNT, successCount.get(), failures.size(), notAvailable,
+                orderRepository.countByListingId(listing.getId()),
+                listingRepository.findById(listing.getId()).orElseThrow().getStatus());
+
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(failures).hasSize(THREAD_COUNT - 1);
         assertThat(failures).allSatisfy(t -> {

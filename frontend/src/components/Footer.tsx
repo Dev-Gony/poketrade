@@ -1,39 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { REPOSITORY_URL } from "@/components/DemoNotice";
 import type { TranslationKey } from "@/i18n/dictionaries";
 import { useTranslation } from "@/i18n/I18nProvider";
 import { routes, type SectionSlug } from "@/lib/navigation";
 
-const GRADING_PARTNERS: { labelKey: TranslationKey; dot: string }[] = [
-  { labelKey: "footer.psa", dot: "bg-error" },
-  { labelKey: "footer.bgs", dot: "bg-secondary" },
-  { labelKey: "footer.cgc", dot: "bg-tertiary" },
-  { labelKey: "footer.ars", dot: "bg-primary" },
+/** 화면에 표시하는 감정사 라벨. 제휴·연동 관계가 아님을 푸터 문구로 함께 밝힌다. */
+const GRADING_LABELS = [
+  { label: "PSA", dot: "bg-error" },
+  { label: "BGS (Beckett)", dot: "bg-secondary" },
+  { label: "CGC", dot: "bg-tertiary" },
 ];
 
-const ESCROW_LINKS: { labelKey: TranslationKey; section: SectionSlug }[] = [
-  { labelKey: "footer.vaultStorage", section: "vault-escrow" },
-  { labelKey: "footer.freight", section: "vault-escrow" },
-  { labelKey: "footer.multisig", section: "vault-escrow" },
-  { labelKey: "footer.counterfeit", section: "escrow-terms" },
+/** 이 데모가 실제로 구현한 기능 → README 해당 절로 연결 */
+const FEATURES: { labelKey: TranslationKey; anchor: string }[] = [
+  { labelKey: "footer.featureLock", anchor: "4-핵심-문제-해결--비관적-락으로-1장-한정-매물-동시성-제어" },
+  { labelKey: "footer.featureWebhook", anchor: "5-핵심-문제-해결--가상계좌-웹훅-멱등성-보장" },
+  { labelKey: "footer.featureExpiry", anchor: "6-그-밖의-설계-고민" },
+  { labelKey: "footer.featureTests", anchor: "7-테스트" },
 ];
 
-/** 제휴사 고유명은 번역하지 않는다. */
-const SETTLEMENT_PARTNERS = ["Toss Payments", "KG Inicis", "KB Kookmin Escrow", "Stripe USD"];
+const PAYMENT_METHODS: { labelKey: TranslationKey; supported: boolean }[] = [
+  { labelKey: "footer.paymentVirtual", supported: true },
+  { labelKey: "footer.paymentUnsupported", supported: false },
+];
 
 const LEGAL_LINKS: { labelKey: TranslationKey; section: SectionSlug }[] = [
   { labelKey: "footer.terms", section: "terms" },
   { labelKey: "footer.privacy", section: "privacy" },
   { labelKey: "footer.escrowTerms", section: "escrow-terms" },
 ];
-
-const COMPANY = {
-  ceo: "홍길동",
-  bizNo: "214-88-99012",
-  mailOrderNo: "제2024-서울강남-04192호",
-  phone: "1588-9042",
-};
 
 export default function Footer() {
   const { t } = useTranslation();
@@ -46,36 +43,41 @@ export default function Footer() {
             <div className="flex items-center gap-space-xs mb-3">
               <span className="font-headline-sm text-headline-sm text-on-surface font-bold tracking-tight">POKETRADE</span>
               <span className="px-1.5 py-0.5 rounded text-[10px] font-label-caps text-label-caps bg-primary-container/20 text-primary border border-primary/40 uppercase">
-                Vault
+                Demo
               </span>
             </div>
             <p className="font-body-sm text-body-sm text-outline mb-4 leading-relaxed">{t("footer.tagline")}</p>
-            <div className="flex items-center gap-2 text-tertiary font-label-numeric-sm text-label-numeric-sm">
-              <span className="material-symbols-outlined text-[18px]">verified_user</span>
+            <div className="flex items-center gap-2 text-secondary font-label-numeric-sm text-label-numeric-sm">
+              <span className="material-symbols-outlined text-[18px]">info</span>
               <span>{t("footer.iso")}</span>
             </div>
           </div>
 
           <div className="md:col-span-1">
-            <h4 className="font-label-caps text-label-caps uppercase text-on-surface mb-3">{t("footer.grading")}</h4>
+            <h4 className="font-label-caps text-label-caps uppercase text-on-surface mb-3">{t("footer.escrow")}</h4>
             <ul className="space-y-2 font-body-sm text-body-sm text-outline">
-              {GRADING_PARTNERS.map((item) => (
-                <li key={item.labelKey} className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`} />
-                  {t(item.labelKey)}
+              {FEATURES.map((item) => (
+                <li key={item.labelKey}>
+                  <a
+                    className="hover:text-on-surface transition-colors"
+                    href={`${REPOSITORY_URL}#${item.anchor}`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {t(item.labelKey)}
+                  </a>
                 </li>
               ))}
             </ul>
           </div>
 
           <div className="md:col-span-1">
-            <h4 className="font-label-caps text-label-caps uppercase text-on-surface mb-3">{t("footer.escrow")}</h4>
+            <h4 className="font-label-caps text-label-caps uppercase text-on-surface mb-3">{t("footer.grading")}</h4>
             <ul className="space-y-2 font-body-sm text-body-sm text-outline">
-              {ESCROW_LINKS.map((item) => (
-                <li key={item.labelKey}>
-                  <Link className="hover:text-on-surface transition-colors" href={routes.section(item.section)}>
-                    {t(item.labelKey)}
-                  </Link>
+              {GRADING_LABELS.map((item) => (
+                <li key={item.label} className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${item.dot}`} />
+                  {item.label}
                 </li>
               ))}
             </ul>
@@ -84,12 +86,14 @@ export default function Footer() {
           <div className="md:col-span-1">
             <h4 className="font-label-caps text-label-caps uppercase text-on-surface mb-3">{t("footer.settlement")}</h4>
             <div className="flex flex-wrap gap-2 mb-4">
-              {SETTLEMENT_PARTNERS.map((label) => (
+              {PAYMENT_METHODS.map((method) => (
                 <span
-                  key={label}
-                  className="px-2 py-1 rounded bg-surface-container font-label-numeric-sm text-label-numeric-sm text-on-surface border border-outline-variant/30"
+                  key={method.labelKey}
+                  className={`px-2 py-1 rounded bg-surface-container font-label-numeric-sm text-label-numeric-sm border border-outline-variant/30 ${
+                    method.supported ? "text-on-surface" : "text-outline line-through decoration-outline/60"
+                  }`}
                 >
-                  {label}
+                  {t(method.labelKey)}
                 </span>
               ))}
             </div>
@@ -97,22 +101,17 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Legal notice */}
+        {/* 실제 사업자가 아니므로 사업자 정보 대신 데모 고지 */}
         <div className="pt-8 border-t border-outline-variant/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-outline font-body-sm text-body-sm">
           <div>
-            <p className="mb-1">
-              {[
-                t("footer.company"),
-                t("footer.ceo", { name: COMPANY.ceo }),
-                t("footer.bizNo", { no: COMPANY.bizNo }),
-                t("footer.mailOrder", { no: COMPANY.mailOrderNo }),
-              ].join(" | ")}
-            </p>
-            <p>
-              {t("footer.address")} | {t("footer.support", { phone: COMPANY.phone })}
-            </p>
+            <p className="mb-1 text-on-surface-variant font-semibold">{t("footer.company")}</p>
+            <p>{t("footer.legalNote")}</p>
           </div>
-          <div className="flex gap-4 shrink-0">
+          <div className="flex flex-wrap gap-4 shrink-0">
+            <a className="flex items-center gap-1 whitespace-nowrap hover:text-on-surface transition-colors" href={REPOSITORY_URL} rel="noreferrer" target="_blank">
+              <span className="material-symbols-outlined text-[16px]">code</span>
+              {t("footer.source")}
+            </a>
             {LEGAL_LINKS.map((item) => (
               <Link key={item.labelKey} className="whitespace-nowrap hover:text-on-surface transition-colors" href={routes.section(item.section)}>
                 {t(item.labelKey)}

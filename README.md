@@ -7,6 +7,7 @@
 1장뿐인 실물 카드를 여러 명이 동시에 사려 할 때도 **단 한 명만** 구매에 성공하고,<br>
 PG 입금 통보가 몇 번 다시 와도 **결제는 정확히 한 번만** 반영되도록 설계했습니다.
 
+[![CI](https://github.com/Dev-Gony/poketrade/actions/workflows/ci.yml/badge.svg)](https://github.com/Dev-Gony/poketrade/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F?logo=springboot&logoColor=white)
 ![Spring Data JPA](https://img.shields.io/badge/Spring%20Data%20JPA-Hibernate%206-59666C?logo=hibernate&logoColor=white)
@@ -23,6 +24,9 @@ PG 입금 통보가 몇 번 다시 와도 **결제는 정확히 한 번만** 반
   <img src="docs/images/checkout.png" width="32%" alt="에스크로 결제" />
 </p>
 <p align="center"><sub>마켓플레이스 · 카드 상세 · 에스크로 결제 (실제 실행 화면)</sub></p>
+
+> [!NOTE]
+> **학습·포트폴리오용 데모 프로젝트입니다.** 화면의 매물·시세·감정 등급·인증·보험·거래량·회사 정보는 모두 예시이며, 실제 거래나 결제는 이루어지지 않습니다. 어떤 은행·PG사·감정사와도 제휴하거나 연동되어 있지 않습니다.
 
 ---
 
@@ -294,6 +298,9 @@ public void reserve() {
 
 ### 검증
 
+> 📄 코드 흐름을 한 줄씩 따라가며 직접 재현하는 방법은 **[docs/concurrency.md](docs/concurrency.md)** 에 정리했습니다.
+> GitHub Actions의 [CI 실행 결과](https://github.com/Dev-Gony/poketrade/actions/workflows/ci.yml) Summary에서도 아래 수치를 바로 확인할 수 있습니다.
+
 [`OrderConcurrencyTest`](src/test/java/com/pocket/market/service/OrderConcurrencyTest.java)에서 **서로 다른 구매자 20명**이 `CountDownLatch`로 같은 순간에 출발해 같은 매물을 주문합니다.
 
 | 검증 항목 | 결과 |
@@ -411,6 +418,8 @@ public WebhookResponse handleVirtualAccountDeposit(String secret, VirtualAccount
 ```bash
 ./gradlew test
 ```
+
+푸시할 때마다 GitHub Actions가 같은 테스트와 프론트엔드 lint·build를 실행합니다. 각 실행의 **Summary**에서 테스트 결과 표와 동시성 검증 수치를 볼 수 있습니다.
 
 | 테스트 클래스 | 개수 | 내용 |
 | --- | --- | --- |

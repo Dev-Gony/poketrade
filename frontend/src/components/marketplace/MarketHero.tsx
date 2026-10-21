@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useCurrency } from "@/currency/CurrencyProvider";
 import { useTranslation } from "@/i18n/I18nProvider";
 
-const VOLUME_24H_KRW = 4_800_000_000;
 
 type MarketHeroProps = {
   /** 실시간 검색어 (MarketplaceView 가 소유) */
@@ -16,12 +14,12 @@ type MarketHeroProps = {
 
 export default function MarketHero({ search, onSearchChange, onSubmit }: MarketHeroProps) {
   const { t } = useTranslation();
-  const { format } = useCurrency();
 
+  // 실제 서비스처럼 보이는 거래량·성공률 대신, 이 데모가 무엇인지 사실대로 보여 준다.
   const marketStats = [
-    { labelKey: "hero.vol24h", value: `${format(VOLUME_24H_KRW, { compact: true })}+`, valueClass: "text-secondary" },
-    { labelKey: "hero.escrowSuccess", value: "99.98%", valueClass: "text-tertiary" },
-    { labelKey: "hero.counterfeitRate", value: t("hero.zeroRisk"), valueClass: "text-primary" },
+    { labelKey: "hero.statData", value: t("hero.statDataValue"), valueClass: "text-secondary" },
+    { labelKey: "hero.statPayment", value: t("hero.statPaymentValue"), valueClass: "text-tertiary" },
+    { labelKey: "hero.statLock", value: t("hero.statLockValue"), valueClass: "text-primary" },
   ] as const;
   const searchRef = useRef<HTMLInputElement>(null);
 

@@ -132,6 +132,14 @@ class PaymentWebhookServiceTest {
         assertThat(done.await(30, TimeUnit.SECONDS)).isTrue();
         executor.shutdown();
 
+        // CI 요약(.github/scripts/junit_summary.py)이 이 줄을 읽어 결과 표에 보여 준다.
+        System.out.printf("[RESULT] 같은 웹훅 %d건 동시 수신 → PROCESSED %d건, ALREADY_PROCESSED %d건, 예외 %d건, 매물 상태 %s%n",
+                threads,
+                results.stream().filter(r -> r == Result.PROCESSED).count(),
+                results.stream().filter(r -> r == Result.ALREADY_PROCESSED).count(),
+                errors.size(),
+                listingRepository.findById(listing.getId()).orElseThrow().getStatus());
+
         assertThat(errors).isEmpty();
         List<Result> all = List.copyOf(results);
         assertThat(all).filteredOn(r -> r == Result.PROCESSED).hasSize(1);

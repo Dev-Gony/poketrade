@@ -25,7 +25,7 @@ export default function DemoModeBadge({ source }: DemoModeBadgeProps) {
 
   return (
     <div
-      className="fixed right-4 top-[7.5rem] z-40 flex items-center gap-1.5 rounded-full border border-outline-variant/40 bg-surface-container-lowest/85 px-2.5 py-1 font-label-numeric-sm text-label-numeric-sm text-on-surface-variant shadow-sm backdrop-blur-md"
+      className="fixed right-4 top-[10rem] z-40 flex items-center gap-1.5 rounded-full border border-outline-variant/40 bg-surface-container-lowest/85 px-2.5 py-1 font-label-numeric-sm text-label-numeric-sm text-on-surface-variant shadow-sm backdrop-blur-md"
       role="status"
       title={t(source === "tcg" ? "demo.tooltipTcg" : "demo.tooltip")}
     >
